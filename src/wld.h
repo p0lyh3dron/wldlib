@@ -10,11 +10,13 @@
 
 #include "wldheader.h"
 #include "filestream.h"
+#include "tile.h"
 
 typedef struct {
-    filestream_t     *apFile;
+    filestream_t      *apFile;
 
-    u32               aVer;
-    wld_info_header_t aInfo;
-    wld_header_t      aHeader;
+    u32                aVer;
+    wld_info_header_t  aInfo;
+    wld_header_t       aHeader;
+    tile_t           **apTiles;
 }wld_t;

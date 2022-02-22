@@ -51,6 +51,18 @@ filestream_t *filestream_open( const s8 *spPath ) {
     return spStream;
 }
 /*
+ *    Seeks into a file stream.
+ *
+ *    @param filestream_t *
+ *        The file stream to seek into.
+ *
+ *    @param s32
+ *        The position to seek to.
+ */
+void filestream_seek( filestream_t *spStream, s32 aPos ) {
+    spStream->aPos = aPos;
+}
+/*
  *    Frees a file stream.
  *
  *    @param filestream_t *

@@ -9,6 +9,7 @@
 #include "wldlib.h"
 #include "parseutil.h"
 #include "wldheaderfuncs.h"
+#include "tilefuncs.h"
 
 #include <stdio.h>
 #include <malloc.h>
@@ -39,6 +40,8 @@ wld_t *wld_open( const s8 *spPath ) {
 
     wld_decude_parsing_type( pWld );
 
+    get_tiles( pWld );
+
     return pWld;
 }
 /*
@@ -55,6 +58,8 @@ void wld_free( wld_t *spWld ) {
     if( spWld->apFile ) {
         filestream_free( spWld->apFile );
     }
+    free_tiles( spWld );
+    wld_header_free( spWld->aHeader );
     wld_info_header_free( spWld->aInfo );
     free( spWld );
 }

@@ -107,7 +107,7 @@ typedef struct {
     s16    aNumClouds;
     f32    aWindSpeed;
     s32    aPlayers;
-    u8**   apPlayerNames;
+    s8**   apPlayerNames;
     u8     aSavedAngler;
     s32    aAnglerQuest;
     u8     aSavedStylist;

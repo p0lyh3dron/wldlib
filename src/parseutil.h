@@ -12,7 +12,7 @@
     pos += sizeof( type )
 
 #define PARSE_ARRAY( buf, pos, type, var, size ) \
-    for( u32 i = 0; i < size; i++ ) {            \
+    for( s32 i = 0; i < size; i++ ) {            \
         var[ i ] = *( type* )( buf + pos );      \
         pos += sizeof( type );                   \
     }
@@ -29,6 +29,16 @@
  *        The file stream.
  */
 filestream_t *filestream_open( const s8 *spPath );
+/*
+ *    Seeks into a file stream.
+ *
+ *    @param filestream_t *
+ *        The file stream to seek into.
+ *
+ *    @param s32
+ *        The position to seek to.
+ */
+void filestream_seek( filestream_t *spStream, s32 aPos );
 /*
  *    Frees a file stream.
  *
