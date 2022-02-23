@@ -20,6 +20,18 @@
  */
 wld_t *wld_open( const s8 *spPath );
 /*
+ *    Writes a world to a file.
+ *
+ *    @param wld_t *
+ *        The world to write.
+ *    @param s8 *
+ *        The file to write to.
+ *
+ *    @return u32
+ *        1 on success, 0 on failure.
+ */
+u32 wld_write( wld_t *spWld, const s8 *spPath );
+/*
  *    Frees a world.
  *
  *    @param wld_t *

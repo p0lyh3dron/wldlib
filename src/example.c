@@ -17,6 +17,12 @@
  */
 int main( void ) {
     wld_t *pWld = wld_open( "world.wld" );
+    if( pWld == NULL ) {
+        printf( "Failed to open world.wld\n" );
+        return -1;
+    }
+
+    wld_write( pWld, "world_modified.wld" );
 
     wld_free( pWld );
 

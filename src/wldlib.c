@@ -41,8 +41,30 @@ wld_t *wld_open( const s8 *spPath ) {
     wld_decude_parsing_type( pWld );
 
     get_tiles( pWld );
+    //dump_tiles( pWld, "tiles.png" );
 
     return pWld;
+}
+/*
+ *    Writes a world to a file.
+ *
+ *    @param wld_t *
+ *        The world to write.
+ *    @param s8 *
+ *        The file to write to.
+ *
+ *    @return u32
+ *        1 on success, 0 on failure.
+ */
+u32 wld_write( wld_t *spWld, const s8 *spPath ) {
+    FILE *pFile = fopen( spPath, "wb" );
+    if( !pFile ) {
+        fprintf( stderr, "wld_write( wld_t *, const u8 * ): Failed to open file.\n" );
+        return 0;
+    }
+
+    fwrite( spWld->apFile->apBuf, spWld->aInfo.apSections[ 1 ], 1, pFile );
+    fclose( pFile );
 }
 /*
  *    Frees a world.

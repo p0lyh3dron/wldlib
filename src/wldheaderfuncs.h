@@ -41,6 +41,30 @@ u32 wld_info_parse( wld_t *spWld );
  */
 u32 wld_header_parse( wld_t *spWld );
 /*
+ *    Returns the world info header as a buffer.
+ *
+ *    @param wld_t *
+ *        The world to get the header from.
+ *    @param u32 *
+ *        The length of the header.
+ *
+ *    @return s8 *
+ *        The world info header.
+ */
+s8 *wld_info_get_header( wld_t *spWld, u32 *spLen );
+/*
+ *    Returns the world format header as a buffer.
+ *
+ *    @param wld_t *
+ *        The world to get the header from.
+ *    @param u32 *
+ *        The length of the header.
+ *
+ *    @return s8 *
+ *        The world format header.
+ */
+s8 *wld_header_get_header( wld_t *spWld, u32 *spLen );
+/*
  *    Dumps the contents of the world info header to stdout.
  *
  *    @param wld_info_header_t 

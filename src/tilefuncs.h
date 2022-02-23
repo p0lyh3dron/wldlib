@@ -29,9 +29,51 @@ u32 tile_is_important( wld_t *spWld, tile_t sTile );
  */
 void get_tiles( wld_t *spWld );
 /*
+ *    Appends a u8 to the buffer.
+ *
+ *    @param s8 *
+ *        The buffer to append to.
+ *    @param u8
+ *        The flag to append.
+ *    @param u32
+ *        The length of the buffer.
+ *    @param u32
+ *        The write flags.
+ *    @param u32
+ *        The flag to check.
+ *
+ *    @return u32
+ *        1 on success, 0 on failure.
+ */
+u32 append_u8( s8 *spBuf, u8 sFlag, u32 sLen, u32 sFlags, u32 sCheck );
+/*
+ *    Returns the tile as a buffer.
+ *
+ *    @param wld_t *
+ *        The world to get the tile from.
+ *    @param u32 *
+ *        The length of the buffer.
+ * 
+ *    @return s8 *
+ *        The tile as a buffer.
+ */
+s8 *tile_get_buffer( wld_t *spWld, u32 *spLen );
+/*
  *    Frees the list of tiles in the world.
  *
  *    @param wld_t *
  *        The world to free the tiles from.
  */
 void free_tiles( wld_t *spWld );
+/*
+ *    Dumps the tiles to an image.
+ *
+ *    @param wld_t *
+ *        The world to dump the tiles from.
+ *    @param char *
+ *        The path to the image to dump to.
+ * 
+ *    @return u32
+ *        1 on success, 0 on failure.
+ */
+u32 dump_tiles( wld_t *spWld, char *spPath );

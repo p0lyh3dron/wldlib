@@ -13,8 +13,14 @@ typedef enum {
     TILE_ORIENTATION_NONE,
 };
 
+typedef enum {
+    LIQUID_WATER,
+    LIQUID_LAVA,
+    LIQUID_HONEY,
+};
+
 typedef struct {
-    s16 aTile;
+    u16 aTile;
     s16 aU;
     s16 aV;
     s16 aWall;
@@ -30,3 +36,7 @@ typedef struct {
     u8 aPaintedTile;
     u8 aPaintedWall;
 }tile_t;
+
+static const u32 gTilePallete[] = {
+    0x976b4b,
+};

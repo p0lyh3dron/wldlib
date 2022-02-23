@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
+
+#define WLD_INFO_HEADER_LEN 0xFF
 /*
  *    Peeks at the world header and returns the version of the world.
  *    Returns -1 if the world is invalid.
@@ -469,6 +471,39 @@ u32 wld_header_parse( wld_t *spWld ) {
     wld_header_dump( spWld->aHeader );
 #endif /* DEBUG  */
     return 1;
+}
+/*
+ *    Returns the world info header as a buffer.
+ *
+ *    @param wld_t *
+ *        The world to get the header from.
+ *    @param u32 *
+ *        The length of the header.
+ *
+ *    @return s8 *
+ *        The world info header.
+ */
+s8 *wld_info_get_header( wld_t *spWld, u32 *spLen ) {
+    static s8 pBuf[ WLD_INFO_HEADER_LEN ] = { 0 };
+    memcpy( pBuf, &spWld->aInfo, WLD_INFO_HEADER_LEN );
+    memcpy( pBuf + sizeof( wld_info_header_t ) - sizeof( spWld->aInfo.aTileMask ), spWld->aInfo.apUVs, spWld->aInfo.aTileMask / 8 );
+    *spLen = sizeof( wld_info_header_t ) - sizeof( spWld->aInfo.aTileMask ) + spWld->aInfo.aTileMask / 8;
+
+    return pBuf;
+}
+/*
+ *    Returns the world format header as a buffer.
+ *
+ *    @param wld_t *
+ *        The world to get the header from.
+ *    @param u32 *
+ *        The length of the header.
+ *
+ *    @return s8 *
+ *        The world format header.
+ */
+s8 *wld_header_get_header( wld_t *spWld, u32 *spLen ) {
+
 }
 /*
  *    Dumps the contents of the world format header to stdout.

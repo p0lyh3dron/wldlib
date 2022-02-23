@@ -113,6 +113,38 @@ s8 *parse_string( u8 *spBuf, u32 *spPos ) {
     return str;
 }
 /*
+ *    Pushes a new byte into a buffer.
+ *
+ *    @param u8 *
+ *        The buffer to push into.
+ *    @param u8
+ *        The byte to push.
+ *    @param u32
+ *        The size of the buffer.
+ *
+ *    @return u32
+ *        The new size of the buffer, 0 on failure.
+ */
+u32 push_byte( u8 *spBuf, u8 aByte, u32 aSize ) {
+    if( aSize >= 0xFFFFFFFF ) {
+        fprintf( stderr, "push_byte( u8 *, u8, u32 ): Buffer is too large.\n" );
+        return 0;
+    }
+    if ( spBuf == NULL ) {
+        fprintf( stderr, "push_byte( u8 *, u8, u32 ): Buffer is NULL.\n" );
+        return 0;
+    }
+
+    spBuf = ( u8 * )realloc( spBuf, aSize + 1 );
+    if( !spBuf ) {
+        fprintf( stderr, "push_byte( u8 *, u8, u32 ): Failed to reallocate buffer.\n" );
+        return 0;
+    }
+
+    spBuf[ aSize + 1 ] = aByte;
+    return aSize + 1;
+}
+/*
  *    Determines the the file version and
  *    calls the appropriate function to parse.
  * 

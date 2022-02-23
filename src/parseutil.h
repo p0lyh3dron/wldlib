@@ -59,6 +59,20 @@ void filestream_free( filestream_t *spStream );
  */
 s8 *parse_string( u8 *spBuf, u32 *spPos );
 /*
+ *    Pushes a new byte into a buffer.
+ *
+ *    @param u8 *
+ *        The buffer to push into.
+ *    @param u8
+ *        The byte to push.
+ *    @param u32
+ *        The size of the buffer.
+ *
+ *    @return u32
+ *        The new size of the buffer, 0 on failure.
+ */
+u32 push_byte( u8 *spBuf, u8 aByte, u32 aSize );
+/*
  *    Determines the the file version and
  *    calls the appropriate function to parse.
  * 
