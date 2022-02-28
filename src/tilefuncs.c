@@ -7,10 +7,55 @@
  */
 #include "tilefuncs.h"
 #include "parseutil.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <malloc.h>
 #include <spng.h>
+/*
+ *    Compares two tiles.
+ *
+ *    @param tile_t
+ *        The first tile to compare.
+ *    @param tile_t
+ *        The second tile to compare.
+ *
+ *    @return u32
+ *        1 if the tiles are equal, 0 if they are not.
+ */
+u32 tile_compare( tile_t sTile0, tile_t sTile1 ) {
+    if ( sTile0.aTile != sTile1.aTile ) {
+        return 0;
+    }
+    if ( sTile0.aU != sTile1.aU ) {
+        return 0;
+    }
+    if ( sTile0.aV != sTile1.aV ) {
+        return 0;
+    }
+    if ( sTile0.aWall != sTile1.aWall ) {
+        return 0;
+    }
+    if ( sTile0.aLiquidType != sTile1.aLiquidType ) {
+        return 0;
+    }
+    if ( sTile0.aLiquidAmount != sTile1.aLiquidAmount ) {
+        return 0;
+    }
+    if ( sTile0.aWireFlags != sTile1.aWireFlags ) {
+        return 0;
+    }
+    if ( sTile0.aOrientation != sTile1.aOrientation ) {
+        return 0;
+    }
+    if ( sTile0.aPaintedTile != sTile1.aPaintedTile ) {
+        return 0;
+    }
+    if ( sTile0.aPaintedWall != sTile1.aPaintedWall ) {
+        return 0;
+    }
+    return 1;
+}
 /*
  *    Returns whether or not a tile is important.
  *
@@ -57,6 +102,8 @@ void get_tiles( wld_t *spWld ) {
 
         for ( s32 y = 0; y < spWld->aHeader.aHeight; ) {
             tile_t t = { 0 };
+            t.aTile  = -1;
+            t.aWall  = -1;
                 
             u8  activeFlags    = 0;
             u8  tileFlagsLow   = 0;
@@ -102,7 +149,36 @@ void get_tiles( wld_t *spWld ) {
             }
             /* Bits 3-4: Liquid is present, next byte is the liquid amount.  */
             if ( activeFlags & ( 1 << 3 | 1 << 4 ) ) {
+                t.aLiquidType = ( activeFlags & ( 1 << 3 | 1 << 4 ) ) >> 3;
                 PARSE( spWld->apFile->apBuf, spWld->apFile->aPos, u8, t.aLiquidAmount );
+            }
+            /* Low tile flags bit 1: Red wire present.  */
+            if ( tileFlagsLow & 1 << 1 ) {
+                t.aWireFlags |= WIRE_RED;
+            }
+            /* Low tile flags bit 2: Blue wire present.  */
+            if ( tileFlagsLow & 1 << 2 ) {
+                t.aWireFlags |= WIRE_BLUE;
+            }
+            /* Low tile flags bit 3: Green wire present.  */
+            if ( tileFlagsLow & 1 << 3 ) {
+                t.aWireFlags |= WIRE_GREEN;
+            }
+            /* Low tile flags bits 4-6: Tile orientation.  */
+            if ( tileFlagsLow & ( 1 << 4 | 1 << 5 | 1 << 6 ) ) {
+                t.aOrientation = ( tileFlagsLow & ( 1 << 4 | 1 << 5 | 1 << 6 ) ) >> 4;
+            }
+            /* High tile flags bit 1: Actuator present.  */
+            if ( tileFlagsHigh & 1 << 1 ) {
+                t.aWireFlags |= WIRE_ACTUATOR;
+            }
+            /* High tile flags bit 2: Actuator active.  */
+            if ( tileFlagsHigh & 1 << 2 ) {
+                t.aWireFlags |= WIRE_ACTIVE_ACTUATOR;
+            }
+            /* High tile flags bit 5: Yellow wire present.  */
+            if ( tileFlagsHigh & 1 << 5 ) {
+                t.aWireFlags |= WIRE_YELLOW;
             }
             /* High tile flags bit 6: Next byte is the 8 bit extension of wall id.  */
             if ( tileFlagsHigh & 1 << 6 ) {
@@ -160,7 +236,7 @@ s8 *tile_get_buffer( wld_t *spWld, u32 *spLen ) {
         return NULL;
     }
     
-    s8 *pBuf = ( s8 * )malloc( sizeof( s8 ) );
+    s8 *pBuf = ( s8 * )malloc( spWld->aHeader.aWidth * spWld->aHeader.aHeight * 17 * sizeof( s8 ) );
     if ( !pBuf ) {
         fprintf( stderr, "tile_get_buffer( wld_t*, u32* ): failed to allocate memory for buffer\n" );
         return NULL;
@@ -172,26 +248,8 @@ s8 *tile_get_buffer( wld_t *spWld, u32 *spLen ) {
             u8  activeFlags    = 0;
             u8  tileFlagsLow   = 0;
             u8  tileFlagsHigh  = 0;
-            u32 writeFlags    = 0;
+            u32 writeFlags     = 0;
 
-#if 0
-            /* Tile is present.  */
-            if ( pTile->aTile != -1 ) {
-                activeFlags |= 1 << 1;
-                /* Tile is 16 bits.  */
-                if ( pTile->aTile & 0xFF00 ) {
-                    activeFlags |= 1 << 5;
-                }
-                /* If tile is important (lookup in info header), write texture UVs.  */
-                if ( tile_is_important( spWld, *pTile ) ) {
-                    
-                }
-                /* Tile is painted.  */
-                if ( pTile->aPaintedTile ) {
-                    tileFlagsLow |= 1 << 3;
-                }
-            }
-            #endif
             /* Tile is present.  */
             if ( pTile->aTile != -1 ) {
                 activeFlags |= 1 << 1;
@@ -210,34 +268,66 @@ s8 *tile_get_buffer( wld_t *spWld, u32 *spLen ) {
                 /* Tile is painted.  */
                 if ( pTile->aPaintedTile ) {
                     tileFlagsHigh |= 1 << 3;
+                    writeFlags    |= TILE_WRITE_TILE_COLOR;
                 }
             }
             /* Wall is present.  */
             if ( pTile->aWall != -1 ) {
                 activeFlags |= 1 << 2;
+                writeFlags        |= TILE_WRITE_WALL_ID;
                 /* Wall is 16 bits.  */
                 if ( pTile->aWall & 0xFF00 ) {
                     tileFlagsHigh |= 1 << 6;
                     writeFlags    |= TILE_WRITE_WALL_ID16;
-                }
-                else {
-                    writeFlags  |= TILE_WRITE_WALL_ID;
                 }
                 if ( pTile->aPaintedWall ) {
                     tileFlagsHigh |= 1 << 4;
                     writeFlags    |= TILE_WRITE_WALL_COLOR;
                 }
             }
+            if ( pTile->aOrientation ) {
+                tileFlagsLow |= pTile->aOrientation << 4;
+            }
             /* Liquid is present.  */
             if ( pTile->aLiquidAmount ) {
                 activeFlags |= pTile->aLiquidType << 3;
                 writeFlags  |= TILE_WRITE_LIQUID_AMT;
             }
+            if ( pTile->aWireFlags & WIRE_RED ) {
+                tileFlagsLow |= 1 << 1;
+            }
+            if ( pTile->aWireFlags & WIRE_GREEN ) {
+                tileFlagsLow |= 1 << 3;
+            }
+            if ( pTile->aWireFlags & WIRE_BLUE ) {
+                tileFlagsLow |= 1 << 2;
+            }
+            if ( pTile->aWireFlags & WIRE_YELLOW ) {
+                tileFlagsHigh |= 1 << 5;
+            }
+            if ( pTile->aWireFlags & WIRE_ACTUATOR ) {
+                tileFlagsHigh |= 1 << 1;
+            }
+            if ( pTile->aWireFlags & WIRE_ACTIVE_ACTUATOR ) {
+                tileFlagsHigh |= 1 << 2;
+            }
+            if ( tileFlagsHigh ) {
+                tileFlagsLow |= 1 << 0;
+                writeFlags   |= TILE_WRITE_TILE_FLAGS_HIGH;
+            }
+            if ( tileFlagsLow ) {
+                activeFlags |= 1 << 0;
+                writeFlags  |= TILE_WRITE_TILE_FLAGS_LOW;
+            }
             /* Tile is copied.  */
             u32 copies = 0;
-            for ( s32 i = 0; i < spWld->aHeader.aHeight; ++i ) {
-                if ( spWld->apTiles[ x ][ y + i ].aTile == pTile->aTile ) {
+            for ( s32 i = 1; y < spWld->aHeader.aHeight; ++i ) {
+                if ( tile_compare( spWld->apTiles[ x ][ y + i ], *pTile ) ) {
                     ++copies;
+                }
+                else {
+                    y += i - 1;
+                    break;
                 }
             }
             if ( copies ) {
@@ -251,27 +341,29 @@ s8 *tile_get_buffer( wld_t *spWld, u32 *spLen ) {
                 }
             }
             /* Write flags.  */
-            if ( activeFlags ) {
-                if ( push_byte( pBuf, activeFlags, len++ ) ) {
+                /*if ( !push_byte( &pBuf, activeFlags, len++ ) ) {
                     fprintf( stderr, "tile_get_buffer( wld_t*, u32* ): failed to push active flags\n" );
                     free( pBuf );
                     return NULL;
-                }
-            }
+                }*/
+                pBuf[ len++ ] = activeFlags;
+            /*if ( pBuf[ len - 1 ] != ( s8 )*( spWld->apFile->apBuf + spWld->aInfo.apSections[ 1 ] +len - 1 ) ) {
+                log_error( "tile_get_buffer( wld_t*, u32* ): active flags don't match at position %d\n", len - 1 );
+            }*/
             u32 ret = 0;
-            ret += append_u8( pBuf, tileFlagsLow, len++, writeFlags, TILE_WRITE_TILE_FLAGS_LOW );
-            ret += append_u8( pBuf, tileFlagsHigh, len++, writeFlags, TILE_WRITE_TILE_FLAGS_HIGH );
-            ret += append_u8( pBuf, pTile->aTile, len++, writeFlags, TILE_WRITE_TILE_ID );
-            ret += append_u8( pBuf, pTile->aTile, len++, writeFlags, TILE_WRITE_TILE_ID16 );
-            ret += append_u8( pBuf, pTile->aU, len++, writeFlags, TILE_WRITE_TILE_UV );
-            ret += append_u8( pBuf, pTile->aV, len++, writeFlags, TILE_WRITE_TILE_UV );
-            ret += append_u8( pBuf, pTile->aPaintedTile, len++, writeFlags, TILE_WRITE_TILE_COLOR );
-            ret += append_u8( pBuf, pTile->aWall, len++, writeFlags, TILE_WRITE_WALL_ID );
-            ret += append_u8( pBuf, pTile->aPaintedWall, len++, writeFlags, TILE_WRITE_WALL_COLOR );
-            ret += append_u8( pBuf, pTile->aLiquidAmount, len++, writeFlags, TILE_WRITE_LIQUID_AMT );
-            ret += append_u8( pBuf, pTile->aWall, len++, writeFlags, TILE_WRITE_WALL_ID16 );
-            ret += append_u8( pBuf, copies, len++, writeFlags, TILE_WRITE_COPIES );
-            ret += append_u8( pBuf, copies, len++, writeFlags, TILE_WRITE_COPIES16 );
+            ret += append_u8( &pBuf, tileFlagsLow, &len, writeFlags, TILE_WRITE_TILE_FLAGS_LOW );
+            ret += append_u8( &pBuf, tileFlagsHigh, &len, writeFlags, TILE_WRITE_TILE_FLAGS_HIGH );
+            ret += append_u8( &pBuf, pTile->aTile, &len, writeFlags, TILE_WRITE_TILE_ID );
+            ret += append_u16( &pBuf, pTile->aTile, &len, writeFlags, TILE_WRITE_TILE_ID16 );
+            ret += append_u16( &pBuf, pTile->aU, &len, writeFlags, TILE_WRITE_TILE_UV );
+            ret += append_u16( &pBuf, pTile->aV, &len, writeFlags, TILE_WRITE_TILE_UV );
+            ret += append_u8( &pBuf, pTile->aPaintedTile, &len, writeFlags, TILE_WRITE_TILE_COLOR );
+            ret += append_u8( &pBuf, pTile->aWall & 0xFF, &len, writeFlags, TILE_WRITE_WALL_ID );
+            ret += append_u8( &pBuf, pTile->aPaintedWall, &len, writeFlags, TILE_WRITE_WALL_COLOR );
+            ret += append_u8( &pBuf, pTile->aLiquidAmount, &len, writeFlags, TILE_WRITE_LIQUID_AMT );
+            ret += append_u8( &pBuf, ( u8 )( ( pTile->aWall & 0xFF00 ) >> 8 ), &len, writeFlags, TILE_WRITE_WALL_ID16 );
+            ret += append_u8( &pBuf, copies, &len, writeFlags, TILE_WRITE_COPIES );
+            ret += append_u16( &pBuf, copies, &len, writeFlags, TILE_WRITE_COPIES16 );
 
             if ( ret != 13 ) {
                 fprintf( stderr, "tile_get_buffer( wld_t*, u32* ): failed to write tile\n" );
@@ -280,11 +372,14 @@ s8 *tile_get_buffer( wld_t *spWld, u32 *spLen ) {
             }
         }
     }
+    *spLen = len;
+
+    return pBuf;
 }
 /*
  *    Appends a u8 to the buffer.
  *
- *    @param s8 *
+ *    @param s8 **
  *        The buffer to append to.
  *    @param u8
  *        The flag to append.
@@ -298,13 +393,13 @@ s8 *tile_get_buffer( wld_t *spWld, u32 *spLen ) {
  *    @return u32
  *        1 on success, 0 on failure.
  */
-u32 append_u8( s8 *spBuf, u8 sFlag, u32 sLen, u32 sFlags, u32 sCheck ) {
+u32 append_u8( s8 **spBuf, u8 sFlag, u32 *spLen, u32 sFlags, u32 sCheck ) {
     if ( !spBuf ) {
         fprintf( stderr, "append_u8( s8*, u8, u32, u32, u32 ): buffer is NULL\n" );
         return 0;
     }
-    if ( !sLen ) {
-        fprintf( stderr, "append_u8( s8*, u8, u32, u32, u32 ): length is 0\n" );
+    if ( !spLen ) {
+        fprintf( stderr, "append_u8( s8*, u8, u32, u32, u32 ): length is NULL\n" );
         return 0;
     }
     if ( !sCheck ) {
@@ -312,11 +407,60 @@ u32 append_u8( s8 *spBuf, u8 sFlag, u32 sLen, u32 sFlags, u32 sCheck ) {
         return 0;
     }
     if ( sFlags & sCheck ) {
-        if ( push_byte( spBuf, sFlag, sLen++ ) ) {
+        /*if ( !push_byte( spBuf, sFlag, *spLen ) ) {
             fprintf( stderr, "append_u8( s8*, u8, u32, u32, u32 ): failed to push flag\n" );
             return 0;
-        }
+        }*/
+        (*spBuf)[ *spLen ] = sFlag;
+        ++*spLen;
     }
+    return 1;
+}
+/*
+ *    Appends a u16 to the buffer.
+ *
+ *    @param s8 **
+ *        The buffer to append to.
+ *    @param u16
+ *        The flag to append.
+ *    @param u32
+ *        The length of the buffer.
+ *    @param u32
+ *        The write flags.
+ *    @param u32
+ *        The flag to check.
+ *
+ *    @return u32
+ *        1 on success, 0 on failure.
+ */
+u32 append_u16( s8 **spBuf, u16 sFlag, u32 *spLen, u32 sFlags, u32 sCheck ) {
+    if ( !spBuf ) {
+        fprintf( stderr, "append_u16( s8*, u16, u32, u32, u32 ): buffer is NULL\n" );
+        return 0;
+    }
+    if ( !spLen ) {
+        fprintf( stderr, "append_u16( s8*, u16, u32, u32, u32 ): length is NULL\n" );
+        return 0;
+    }
+    if ( !sCheck ) {
+        fprintf( stderr, "append_u16( s8*, u16, u32, u32, u32 ): no check flag!\n" );
+        return 0;
+    }
+    if ( sFlags & sCheck ) {
+        /*if ( !push_byte( spBuf, sFlag & 0xFF, *spLen ) ) {
+            fprintf( stderr, "append_u16( s8*, u16, u32, u32, u32 ): failed to push low byte\n" );
+            return 0;
+        }
+        ++*spLen;
+        if ( !push_byte( spBuf, ( sFlag >> 8 ) & 0xFF, *spLen ) ) {
+            fprintf( stderr, "append_u16( s8*, u16, u32, u32, u32 ): failed to push high byte\n" );
+            return 0;
+        }  */
+        (*spBuf)[ *spLen ] = sFlag & 0xFF;
+        (*spBuf)[ *spLen + 1 ] = ( sFlag >> 8 ) & 0xFF;
+        *spLen += 2;
+    }
+    return 1;
 }
 /*
  *    Frees the list of tiles in the world.
@@ -356,7 +500,7 @@ u32 dump_tiles( wld_t *spWld, char *spPath ) {
         return 0;
     }
 
-    u32 len = sizeof( u8 ) * spWld->aHeader.aWidth * spWld->aHeader.aHeight * 4;
+    size_t len = sizeof( u8 ) * spWld->aHeader.aWidth * spWld->aHeader.aHeight * 4;
 
     u8 *pBuf = ( u8 * )malloc( len );
     if ( !pBuf ) {

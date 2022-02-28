@@ -14,6 +14,7 @@
 #include <string.h>
 
 #define WLD_INFO_HEADER_LEN 0xFF
+#define WLD_HEADER_LEN      0xFFFF
 /*
  *    Peeks at the world header and returns the version of the world.
  *    Returns -1 if the world is invalid.
@@ -503,7 +504,11 @@ s8 *wld_info_get_header( wld_t *spWld, u32 *spLen ) {
  *        The world format header.
  */
 s8 *wld_header_get_header( wld_t *spWld, u32 *spLen ) {
+    static s8 pBuf[ WLD_HEADER_LEN ] = { 0 };
+    memcpy( pBuf, &spWld->aHeader, WLD_HEADER_LEN );
+    *spLen = sizeof( wld_header_t );
 
+    return pBuf;
 }
 /*
  *    Dumps the contents of the world format header to stdout.

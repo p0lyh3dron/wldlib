@@ -10,6 +10,18 @@
 #include "tile.h"
 #include "wld.h"
 /*
+ *    Compares two tiles.
+ *
+ *    @param tile_t
+ *        The first tile to compare.
+ *    @param tile_t
+ *        The second tile to compare.
+ *
+ *    @return u32
+ *        1 if the tiles are equal, 0 if they are not.
+ */
+u32 tile_compare( tile_t sTile0, tile_t sTile1 );
+/*
  *    Returns whether or not a tile is important.
  *
  *    @param wld_t *
@@ -31,11 +43,11 @@ void get_tiles( wld_t *spWld );
 /*
  *    Appends a u8 to the buffer.
  *
- *    @param s8 *
+ *    @param s8 **
  *        The buffer to append to.
  *    @param u8
  *        The flag to append.
- *    @param u32
+ *    @param u32 *
  *        The length of the buffer.
  *    @param u32
  *        The write flags.
@@ -45,7 +57,25 @@ void get_tiles( wld_t *spWld );
  *    @return u32
  *        1 on success, 0 on failure.
  */
-u32 append_u8( s8 *spBuf, u8 sFlag, u32 sLen, u32 sFlags, u32 sCheck );
+u32 append_u8( s8 **spBuf, u8 sFlag, u32 *spLen, u32 sFlags, u32 sCheck );
+/*
+ *    Appends a u16 to the buffer.
+ *
+ *    @param s8 **
+ *        The buffer to append to.
+ *    @param u16
+ *        The flag to append.
+ *    @param u32 *
+ *        The length of the buffer.
+ *    @param u32
+ *        The write flags.
+ *    @param u32
+ *        The flag to check.
+ *
+ *    @return u32
+ *        1 on success, 0 on failure.
+ */
+u32 append_u16( s8 **spBuf, u16 sFlag, u32 *spLen, u32 sFlags, u32 sCheck );
 /*
  *    Returns the tile as a buffer.
  *

@@ -9,30 +9,35 @@
 
 #include "types.h"
 
-typedef enum {
-    TILE_ORIENTATION_NONE,
+enum {
+    TILE_ORIENTATION_NONE  = 0,
+    TILE_ORIENTATION_HALF  = 1,
 };
 
-typedef enum {
-    LIQUID_WATER,
-    LIQUID_LAVA,
-    LIQUID_HONEY,
+enum {
+    LIQUID_WATER = 1,
+    LIQUID_LAVA  = 2,
+    LIQUID_HONEY = 3,
+};
+
+enum {
+    WIRE_RED             = 1 << 0,
+    WIRE_BLUE            = 1 << 1,
+    WIRE_GREEN           = 1 << 2,
+    WIRE_YELLOW          = 1 << 3,
+    WIRE_ACTUATOR        = 1 << 4,
+    WIRE_ACTIVE_ACTUATOR = 1 << 5,
 };
 
 typedef struct {
-    u16 aTile;
+    s16 aTile;
     s16 aU;
     s16 aV;
     s16 aWall;
     u8 aLiquidType;
     u8 aLiquidAmount;
-    u8 aRedWire;
-    u8 aBlueWire;
-    u8 aGreenWire;
-    u8 aYellowWire;
+    u8 aWireFlags;
     u8 aOrientation;
-    u8 aActuator;
-    u8 aActiveActuator;
     u8 aPaintedTile;
     u8 aPaintedWall;
 }tile_t;

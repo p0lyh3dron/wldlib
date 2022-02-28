@@ -8,6 +8,7 @@
 #include "parseutil.h"
 #include "wldheaderfuncs.h"
 #include "wldfuncs.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <malloc.h>
@@ -115,7 +116,7 @@ s8 *parse_string( u8 *spBuf, u32 *spPos ) {
 /*
  *    Pushes a new byte into a buffer.
  *
- *    @param u8 *
+ *    @param s8 **
  *        The buffer to push into.
  *    @param u8
  *        The byte to push.
@@ -125,23 +126,25 @@ s8 *parse_string( u8 *spBuf, u32 *spPos ) {
  *    @return u32
  *        The new size of the buffer, 0 on failure.
  */
-u32 push_byte( u8 *spBuf, u8 aByte, u32 aSize ) {
+u32 push_byte( s8 **spBuf, u8 aByte, u32 aSize ) {   
     if( aSize >= 0xFFFFFFFF ) {
-        fprintf( stderr, "push_byte( u8 *, u8, u32 ): Buffer is too large.\n" );
+        log_fatal( "push_byte( s8 *, u8, u32 ): Buffer size is too large.\n" );
         return 0;
     }
-    if ( spBuf == NULL ) {
-        fprintf( stderr, "push_byte( u8 *, u8, u32 ): Buffer is NULL.\n" );
-        return 0;
-    }
-
-    spBuf = ( u8 * )realloc( spBuf, aSize + 1 );
-    if( !spBuf ) {
-        fprintf( stderr, "push_byte( u8 *, u8, u32 ): Failed to reallocate buffer.\n" );
+    if ( spBuf == NULL || *spBuf == NULL ) {
+        log_fatal( "push_byte( s8 *, u8, u32 ): Buffer is NULL.\n" );
         return 0;
     }
 
-    spBuf[ aSize + 1 ] = aByte;
+    log_debug( "push_byte( u8 *, u8, u32 ): Pushing byte %d into buffer of size %d.\n", aByte, aSize );
+
+    *spBuf = ( s8 * )realloc( *spBuf, aSize + 1 );
+    if( !*spBuf ) {
+        log_fatal( "push_byte( s8 *, u8, u32 ): Failed to reallocate buffer.\n" );
+        return 0;
+    }
+
+    ( *spBuf )[ aSize + 1 ] = aByte;
     return aSize + 1;
 }
 /*
@@ -150,13 +153,16 @@ u32 push_byte( u8 *spBuf, u8 aByte, u32 aSize ) {
  * 
  *    @param wld_t *
  *        The world to parse.
+ * 
+ *    @return u32
+ *        1 on success, 0 on failure.
  */
-void wld_decude_parsing_type( wld_t *spWld ) {
+u32 wld_decude_parsing_type( wld_t *spWld ) {
     s32 version = wld_get_version( spWld );
 
     if ( version == -1 ) {
         fprintf( stderr, "wld_decude_parsing_type( wld_t* ): World is NULL.\n" );
-        return;
+        return 0;
     }
 
     spWld->aVer = version;
@@ -164,9 +170,18 @@ void wld_decude_parsing_type( wld_t *spWld ) {
     switch ( version ) {
         case 244:
             wld_header_parse( spWld );
+            return 1;
+            break;
+        case 245:
+            wld_header_parse( spWld );
+            return 1;
+            break;
+        case 246:
+            wld_header_parse( spWld );
+            return 1;
             break;
         default:
-            fprintf( stderr, "wld_decude_parsing_type( s32 ): Unknown version.\n" );
-            break;
+            log_fatal( "wld_decude_parsing_type( s32 ): Unknown version: %d\n", version );
+            return 0;
     }
 }

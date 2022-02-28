@@ -10,6 +10,7 @@
 #include "parseutil.h"
 #include "wldheaderfuncs.h"
 #include "tilefuncs.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <malloc.h>
@@ -38,10 +39,13 @@ wld_t *wld_open( const s8 *spPath ) {
 
     pWld->apFile = pStream;
 
-    wld_decude_parsing_type( pWld );
+    if ( !wld_decude_parsing_type( pWld ) ) {
+        log_fatal( "wld_open( const u8 * ): Failed to decode parsing type.\n" );
+        return NULL;
+    }
 
     get_tiles( pWld );
-    //dump_tiles( pWld, "tiles.png" );
+    dump_tiles( pWld, "tiles.png" );
 
     return pWld;
 }
@@ -64,7 +68,16 @@ u32 wld_write( wld_t *spWld, const s8 *spPath ) {
     }
 
     fwrite( spWld->apFile->apBuf, spWld->aInfo.apSections[ 1 ], 1, pFile );
+
+    u32 tileLen = 0;
+    s8 *pTile   = tile_get_buffer( spWld, &tileLen );
+    fwrite( pTile, tileLen, 1, pFile );
+    fwrite( spWld->apFile->apBuf + spWld->aInfo.apSections[ 1 ] + tileLen, spWld->apFile->aSize - tileLen - spWld->aInfo.apSections[ 1 ], 1, pFile );
+    free( pTile );
+
     fclose( pFile );
+
+    return 1;
 }
 /*
  *    Frees a world.

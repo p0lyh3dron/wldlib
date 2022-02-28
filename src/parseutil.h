@@ -61,7 +61,7 @@ s8 *parse_string( u8 *spBuf, u32 *spPos );
 /*
  *    Pushes a new byte into a buffer.
  *
- *    @param u8 *
+ *    @param u8 **
  *        The buffer to push into.
  *    @param u8
  *        The byte to push.
@@ -71,12 +71,15 @@ s8 *parse_string( u8 *spBuf, u32 *spPos );
  *    @return u32
  *        The new size of the buffer, 0 on failure.
  */
-u32 push_byte( u8 *spBuf, u8 aByte, u32 aSize );
+u32 push_byte( s8 **spBuf, u8 aByte, u32 aSize );
 /*
  *    Determines the the file version and
  *    calls the appropriate function to parse.
  * 
  *    @param wld_t *
  *        The world to parse.
+ * 
+ *    @return u32
+ *        1 on success, 0 on failure.
  */
-void wld_decude_parsing_type( wld_t *spWld );
+u32 wld_decude_parsing_type( wld_t *spWld );
