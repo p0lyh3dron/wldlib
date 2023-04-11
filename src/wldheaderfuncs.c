@@ -41,7 +41,7 @@ s32 wld_get_version( wld_t *spWld ) {
         return -1;
     }
 
-    return spWld->apFile->apBuf[ 0 ];
+    return *( s32 * )spWld->apFile->apBuf;
 }
 /*
  *    Parses the world info header.

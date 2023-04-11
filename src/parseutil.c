@@ -180,6 +180,10 @@ u32 wld_decude_parsing_type( wld_t *spWld ) {
             wld_header_parse( spWld );
             return 1;
             break;
+        case 279:
+            wld_header_parse( spWld );
+            return 1;
+            break;
         default:
             log_fatal( "wld_decude_parsing_type( s32 ): Unknown version: %d\n", version );
             return 0;
