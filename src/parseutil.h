@@ -2,19 +2,19 @@
  *    parseutil.h    --    parse utility functions
  *
  *    Authored by Karl "p0lyh3dron" Kreuze on February 21, 2022
- * 
+ *
  *    Declares functions for parsing strings/files.
  */
 #pragma once
 
-#define PARSE( buf, pos, type, var )             \
-    var = *( type* )( buf + pos );               \
-    pos += sizeof( type )
+#define PARSE(buf, pos, type, var) \
+    var = *(type *)(buf + pos);    \
+    pos += sizeof(type)
 
-#define PARSE_ARRAY( buf, pos, type, var, size ) \
-    for( s32 i = 0; i < size; i++ ) {            \
-        var[ i ] = *( type* )( buf + pos );      \
-        pos += sizeof( type );                   \
+#define PARSE_ARRAY(buf, pos, type, var, size) \
+    for (s32 i = 0; i < size; i++) {           \
+        var[i] = *(type *)(buf + pos);         \
+        pos += sizeof(type);                   \
     }
 
 #include "filestream.h"
@@ -28,7 +28,7 @@
  *    @return filestream_t *
  *        The file stream.
  */
-filestream_t *filestream_open( const s8 *spPath );
+filestream_t *filestream_open(const s8 *spPath);
 /*
  *    Seeks into a file stream.
  *
@@ -38,14 +38,14 @@ filestream_t *filestream_open( const s8 *spPath );
  *    @param s32
  *        The position to seek to.
  */
-void filestream_seek( filestream_t *spStream, s32 aPos );
+void filestream_seek(filestream_t *spStream, s32 aPos);
 /*
  *    Frees a file stream.
  *
  *    @param filestream_t *
  *        The file stream to free.
  */
-void filestream_free( filestream_t *spStream );
+void filestream_free(filestream_t *spStream);
 /*
  *    Parses a string.
  *
@@ -57,7 +57,7 @@ void filestream_free( filestream_t *spStream );
  *    @return s8 *
  *       The parsed string, NULL on failure.
  */
-s8 *parse_string( u8 *spBuf, u32 *spPos );
+s8 *parse_string(u8 *spBuf, u32 *spPos);
 /*
  *    Pushes a new byte into a buffer.
  *
@@ -71,15 +71,15 @@ s8 *parse_string( u8 *spBuf, u32 *spPos );
  *    @return u32
  *        The new size of the buffer, 0 on failure.
  */
-u32 push_byte( s8 **spBuf, u8 aByte, u32 aSize );
+u32 push_byte(s8 **spBuf, u8 aByte, u32 aSize);
 /*
  *    Determines the the file version and
  *    calls the appropriate function to parse.
- * 
+ *
  *    @param wld_t *
  *        The world to parse.
- * 
+ *
  *    @return u32
  *        1 on success, 0 on failure.
  */
-u32 wld_decude_parsing_type( wld_t *spWld );
+u32 wld_decude_parsing_type(wld_t *spWld);

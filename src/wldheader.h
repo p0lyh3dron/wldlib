@@ -2,10 +2,10 @@
  *    wldheader.h    --    Header file for the WLD file header
  *
  *    Authored by Karl "p0lyh3dron" Kreuze on February 21, 2022
- * 
+ *
  *    Header file for the WLD file header, which contains all the
  *    structures for the header section of the WLD file.
- * 
+ *
  *    This is the first section of the file, and contains the version
  *    number, as well as various other information about the world.
  */
@@ -15,7 +15,7 @@
 
 typedef struct {
     s32  aVer;
-    s8   aSig[ 7 ];
+    s8   aSig[7];
     s8   aWorldType;
     s32  aRevisions;
     s64  aFavorite;
@@ -23,13 +23,13 @@ typedef struct {
     s32 *apSections;
     s16  aTileMask;
     s8  *apUVs;
-}wld_info_header_t;
+} wld_info_header_t;
 
 typedef struct {
     s8    *apName;
     s8    *apSeed;
     s64    aGeneratorVer;
-    u8     aGuid[ 16 ];
+    u8     aGuid[16];
     s32    aId;
     rect_t aBounds;
     s32    aHeight;
@@ -41,10 +41,10 @@ typedef struct {
     u8     aMaster;
     s64    aCreationTime;
     u8     aMoonType;
-    s32    aTreeX[ 3 ];
-    s32    aTreeStyles[ 4 ];
-    s32    aCaveBackX[ 3 ];
-    s32    aCaveBackStyle[ 4 ];
+    s32    aTreeX[3];
+    s32    aTreeStyles[4];
+    s32    aCaveBackX[3];
+    s32    aCaveBackStyle[4];
     s32    aIceBackStyle;
     s32    aJungleBackStyle;
     s32    aHellBackStyle;
@@ -107,7 +107,7 @@ typedef struct {
     s16    aNumClouds;
     f32    aWindSpeed;
     s32    aPlayers;
-    s8**   apPlayerNames;
+    s8   **apPlayerNames;
     u8     aSavedAngler;
     s32    aAnglerQuest;
     u8     aSavedStylist;
@@ -172,4 +172,4 @@ typedef struct {
     u8     aBoughtBunny;
     u8     aKilledEoL;
     u8     aKilledQueenSlime;
-}wld_header_t;
+} wld_header_t;

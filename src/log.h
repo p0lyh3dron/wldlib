@@ -2,7 +2,7 @@
  *    log.h    --    Logging functions
  *
  *    Authored by Karl "p0lyh3dron" Kreuze on February 27, 2022
- * 
+ *
  *    This file declares the logging functions.
  */
 #pragma once
@@ -16,7 +16,7 @@
  *    @param ...
  *        The arguments to the message.
  */
-void log_note( const s8 *spMsg, ... );
+void log_note(const s8 *spMsg, ...);
 /*
  *    Logs a warning ( medium severity, may change program execution )
  *
@@ -25,7 +25,7 @@ void log_note( const s8 *spMsg, ... );
  *    @param ...
  *        The arguments to the message.
  */
-void log_warning( const s8 *spMsg, ... );
+void log_warning(const s8 *spMsg, ...);
 /*
  *    Logs an error ( high severity, likely will change program execution )
  *
@@ -34,7 +34,7 @@ void log_warning( const s8 *spMsg, ... );
  *    @param ...
  *        The arguments to the message.
  */
-void log_error( const s8 *spMsg, ... );
+void log_error(const s8 *spMsg, ...);
 /*
  *    Logs a fatal error ( highest severity, program will exit )
  *
@@ -43,7 +43,7 @@ void log_error( const s8 *spMsg, ... );
  *    @param ...
  *        The arguments to the message.
  */
-void log_fatal( const s8 *spMsg, ... );
+void log_fatal(const s8 *spMsg, ...);
 /*
  *    Logs a debug message ( disabled by default )
  *
@@ -52,7 +52,7 @@ void log_fatal( const s8 *spMsg, ... );
  *    @param ...
  *        The arguments to the message.
  */
-void log_debug( const s8 *spMsg, ... );
+void log_debug(const s8 *spMsg, ...);
 /*
  *    Logs a verbose message ( disabled by default )
  *
@@ -61,4 +61,4 @@ void log_debug( const s8 *spMsg, ... );
  *    @param ...
  *        The arguments to the message.
  */
-void log_verbose( const s8 *spMsg, ... );
+void log_verbose(const s8 *spMsg, ...);

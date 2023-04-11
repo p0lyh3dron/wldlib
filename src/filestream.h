@@ -14,4 +14,4 @@ typedef struct {
     u8 *apBuf;
     u32 aSize;
     u32 aPos;
-}filestream_t;
+} filestream_t;
