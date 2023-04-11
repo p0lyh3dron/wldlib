@@ -2,6 +2,7 @@
  *    tile.h    --    header file for the tile structure
  *
  *    Authored by Karl "p0lyh3dron" Kreuze on February 21, 2022
+ *    Refactored by Karl "p0lyh3dron" Kreuze on April 11, 2023
  *
  *    Declares the tile structure.
  */
@@ -30,18 +31,18 @@ enum {
 };
 
 typedef struct {
-    s16 aTile;
-    s16 aU;
-    s16 aV;
-    s16 aWall;
-    u8  aLiquidType;
-    u8  aLiquidAmount;
-    u8  aWireFlags;
-    u8  aOrientation;
-    u8  aPaintedTile;
-    u8  aPaintedWall;
+    short         tile;
+    short         u;
+    short         v;
+    short         wall;
+    unsigned char liquid_type;
+    unsigned char liquid_amount;
+    unsigned char wiring;
+    unsigned char orientation;
+    unsigned char tile_paint;
+    unsigned char wall_paint;
 } tile_t;
 
-static const u32 gTilePallete[] = {
+static const unsigned int _tile_palette[] = {
     0x976b4b,
 };

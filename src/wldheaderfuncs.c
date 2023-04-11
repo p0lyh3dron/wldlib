@@ -2,10 +2,14 @@
  *    wldheaderfuncs.c    --    Source file for the WLD file header
  *
  *    Authored by Karl "p0lyh3dron" Kreuze on February 21, 2022
+ *    Refactored by Karl "p0lyh3dron" Kreuze on April 11, 2023
  *
  *    Source file for parsing the WLD file header.
  */
 #include "wldheaderfuncs.h"
+
+#include "log.h"
+
 #include "parseutil.h"
 #include "wldheader.h"
 
@@ -15,646 +19,623 @@
 
 #define WLD_INFO_HEADER_LEN 0xFF
 #define WLD_HEADER_LEN      0xFFFF
+
 /*
  *    Peeks at the world header and returns the version of the world.
  *    Returns -1 if the world is invalid.
  *
- *    @param wld_t*
- *        The world to check.
+ *    @param wld_t *wld    The world to check.
  *
- *    @return s32
- *        The version of the world.
+ *    @return int          The version of the world.
  */
-s32 wld_get_version(wld_t *spWld) {
-    if (!spWld) {
-        fprintf(stderr, "wld_get_version( wld_t* ): World is NULL.\n");
+int wld_get_version(wld_t *wld) {
+    if (wld == (wld_t *)0x0) {
+        LOGF_ERR("World is NULL.\n");
         return -1;
     }
 
-    if (!spWld->apFile) {
-        fprintf(stderr, "wld_get_version( wld_t* ): World file stream is NULL.\n");
+    if (wld->file == (filestream_t *)0x0) {
+        LOGF_ERR("World file stream is NULL.\n");
         return -1;
     }
 
-    if (!spWld->apFile->apBuf) {
-        fprintf(stderr, "wld_get_version( wld_t* ): World file buffer is NULL.\n");
+    if (wld->file->buf == (unsigned char *)0x0) {
+        LOGF_ERR("World file buffer is NULL.\n");
         return -1;
     }
 
-    return *(s32 *)spWld->apFile->apBuf;
+    return *(int *)wld->file->buf;
 }
+
 /*
  *    Parses the world info header.
  *
- *    @param wld_t*
- *        The world to parse.
+ *    @param wld_t* wld    The world to parse.
  *
- *    @return u32
- *        1 on success, 0 on failure.
+ *    @return unsigned int          1 on success, 0 on failure.
  */
-u32 wld_info_parse(wld_t *spWld) {
-    if (!spWld) {
-        fprintf(stderr, "wld_header_parse( wld_t* ): World is NULL.\n");
-        return 0;
-    }
-    u8  *pBuf = spWld->apFile->apBuf;
-    u32 *pPos = &spWld->apFile->aPos;
-
-    PARSE(pBuf, *pPos, u32, spWld->aInfo.aVer);
-
-    PARSE_ARRAY(pBuf, *pPos, u8, spWld->aInfo.aSig, 7);
-
-    PARSE(pBuf, *pPos, s8, spWld->aInfo.aWorldType);
-    PARSE(pBuf, *pPos, s32, spWld->aInfo.aRevisions);
-    PARSE(pBuf, *pPos, s64, spWld->aInfo.aFavorite);
-    PARSE(pBuf, *pPos, s16, spWld->aInfo.aNumSections);
-
-    spWld->aInfo.apSections = (s32 *)malloc(sizeof(s32) * spWld->aInfo.aNumSections);
-    if (!spWld->aInfo.apSections) {
-        fprintf(stderr, "wld_header_parse( wld_t* ): Failed to allocate memory for sections.\n");
+unsigned int wld_info_parse(wld_t *wld) {
+    if (wld == (wld_t *)0x0) {
+        LOGF_ERR("World is NULL.\n");
         return 0;
     }
 
-    PARSE_ARRAY(pBuf, *pPos, s32, spWld->aInfo.apSections, spWld->aInfo.aNumSections);
+    unsigned char *buf = wld->file->buf;
+    unsigned int  *pos = &wld->file->pos;
 
-    PARSE(pBuf, *pPos, s16, spWld->aInfo.aTileMask);
+    PARSE(buf, *pos, unsigned int, wld->info.ver);
+    PARSE_ARRAY(buf, *pos, unsigned char, wld->info.sig, 7);
+    PARSE(buf, *pos, char, wld->info.world_type);
+    PARSE(buf, *pos, int, wld->info.revisions);
+    PARSE(buf, *pos, long, wld->info.favorite);
+    PARSE(buf, *pos, short, wld->info.numsections);
 
-    s32 bits = 0;
+    wld->info.sections = (int *)malloc(sizeof(int) * wld->info.numsections);
 
-    if (spWld->aInfo.aTileMask % 8 == 0)
-        bits = spWld->aInfo.aTileMask / 8;
+    if (wld->info.sections == (int *)0x0) {
+        LOGF_ERR("Failed to allocate memory for sections.\n");
+        return 0;
+    }
+
+    PARSE_ARRAY(buf, *pos, int, wld->info.sections, wld->info.numsections);
+
+    PARSE(buf, *pos, short, wld->info.tilemask);
+
+    int bits = 0;
+
+    if (wld->info.tilemask % 8 == 0)
+        bits = wld->info.tilemask / 8;
     else
-        bits = spWld->aInfo.aTileMask / 8 + 1;
+        bits = wld->info.tilemask / 8 + 1;
 
-    spWld->aInfo.apUVs = (s8 *)malloc(sizeof(s8) * bits);
-    if (!spWld->aInfo.apUVs) {
-        fprintf(stderr, "wld_header_parse( wld_t* ): Failed to allocate memory for UVs.\n");
+    wld->info.uvs = (char *)malloc(sizeof(char) * bits);
+
+    if (!wld->info.uvs) {
+        LOGF_ERR("Failed to allocate memory for UVs.\n");
         return 0;
     }
 
-    PARSE_ARRAY(pBuf, *pPos, s8, spWld->aInfo.apUVs, bits);
+    PARSE_ARRAY(buf, *pos, char, wld->info.uvs, bits);
 #if DEBUG
-    wld_info_header_dump(spWld->aInfo);
+    wld_info_header_dump(spWld->info);
 #endif /* DEBUG  */
 
     return 1;
 }
+
 /*
  *    Parses the world format header.
  *
- *    @param wld_t*
- *        The world to parse.
+ *    @param wld_t* wld    The world to parse.
  *
- *    @return u32
- *        1 on success, 0 on failure.
+ *    @return unsigned int    1 on success, 0 on failure.
  */
-u32 wld_header_parse(wld_t *spWld) {
-    if (!wld_info_parse(spWld)) {
-        fprintf(stderr, "wld_header_parse( wld_t* ): Failed to parse world info header.\n");
+unsigned int wld_header_parse(wld_t *wld) {
+    if (!wld_info_parse(wld)) {
+        LOGF_ERR("Failed to parse world info header.\n");
         return 0;
     }
 
-    u8           *pBuf    = spWld->apFile->apBuf;
-    u32          *pPos    = &spWld->apFile->aPos;
-    wld_header_t *pHeader = &spWld->aHeader;
+    unsigned char *buf    = wld->file->buf;
+    unsigned int  *pos    = &wld->file->pos;
+    wld_header_t  *header = &wld->header;
 
-    pHeader->apName = parse_string(pBuf, pPos);
-    if (spWld->aVer >= 179) {
-        pHeader->apSeed = parse_string(pBuf, pPos);
+    header->name = parse_string(buf, pos);
 
-        PARSE(pBuf, *pPos, s64, pHeader->aGeneratorVer);
+    if (wld->ver >= 179) {
+        header->seed = parse_string(buf, pos);
+
+        PARSE(buf, *pos, long, header->generator_ver);
     }
 
-    if (spWld->aVer >= 181) {
-        PARSE_ARRAY(pBuf, *pPos, u8, pHeader->aGuid, 16);
-    }
+    if (wld->ver >= 181)
+        PARSE_ARRAY(buf, *pos, unsigned char, header->guid, 16);
 
-    PARSE(pBuf, *pPos, s32, pHeader->aId);
-    PARSE(pBuf, *pPos, rect_t, pHeader->aBounds);
-    PARSE(pBuf, *pPos, s32, pHeader->aHeight);
-    PARSE(pBuf, *pPos, s32, pHeader->aWidth);
+    PARSE(buf, *pos, int, header->id);
+    PARSE(buf, *pos, rect_t, header->bounds);
+    PARSE(buf, *pos, int, header->height);
+    PARSE(buf, *pos, int, header->width);
 
-    if (spWld->aVer >= 209) {
-        PARSE(pBuf, *pPos, s32, pHeader->aGameMode);
-    }
+    if (wld->ver >= 209)
+        PARSE(buf, *pos, int, header->gamemode);
 
     /* Figure this out later.  */
-    *pPos += 3;
+    *pos += 3;
 
-    if (spWld->aVer >= 222) {
-        PARSE(pBuf, *pPos, u8, pHeader->aDrunk);
+    if (wld->ver >= 222)
+        PARSE(buf, *pos, unsigned char, header->drunk);
+
+    if (wld->ver >= 227)
+        PARSE(buf, *pos, unsigned char, header->ftw);
+
+    if (wld->ver >= 112 && wld->ver < 209)
+        PARSE(buf, *pos, unsigned char, header->expert);
+
+    if (wld->ver >= 208 && wld->ver < 209)
+        PARSE(buf, *pos, unsigned char, header->master);
+
+    if (wld->ver >= 141)
+        PARSE(buf, *pos, long, header->creation_time);
+
+    if (wld->ver >= 63)
+        PARSE(buf, *pos, unsigned char, header->moon_type);
+
+    if (wld->ver >= 44)
+        PARSE_ARRAY(buf, *pos, int, header->tree_x, 3);
+    PARSE_ARRAY(buf, *pos, int, header->tree_styles, 4);
+
+    if (wld->ver >= 60) {
+        PARSE_ARRAY(buf, *pos, int, header->cave_back_x, 3);
+        PARSE_ARRAY(buf, *pos, int, header->cave_back_style, 4);
+
+        PARSE(buf, *pos, int, header->ice_back_style);
     }
 
-    if (spWld->aVer >= 227) {
-        PARSE(pBuf, *pPos, u8, pHeader->aFtw);
+    if (wld->ver >= 61) {
+        PARSE(buf, *pos, int, header->jungle_back_style);
+        PARSE(buf, *pos, int, header->hell_back_style);
     }
 
-    if (spWld->aVer >= 112 && spWld->aVer < 209) {
-        PARSE(pBuf, *pPos, u8, pHeader->aExpert);
+    PARSE(buf, *pos, int, header->spawn_x);
+    PARSE(buf, *pos, int, header->spawn_y);
+    PARSE(buf, *pos, double, header->ground_level);
+    PARSE(buf, *pos, double, header->rock_level);
+    PARSE(buf, *pos, double, header->time);
+    PARSE(buf, *pos, unsigned char, header->day);
+    PARSE(buf, *pos, int, header->moon_phase);
+    PARSE(buf, *pos, unsigned char, header->blood_moon);
+
+    if (wld->ver >= 63)
+        PARSE(buf, *pos, unsigned char, header->eclipse);
+
+    PARSE(buf, *pos, int, header->dungeon_x);
+    PARSE(buf, *pos, int, header->dungeon_y);
+
+    if (wld->ver >= 56)
+        PARSE(buf, *pos, unsigned char, header->crimson);
+
+    PARSE(buf, *pos, unsigned char, header->kill_eoc);
+    PARSE(buf, *pos, unsigned char, header->kill_evil_boss);
+    PARSE(buf, *pos, unsigned char, header->kill_skeletron);
+
+    if (wld->ver >= 66)
+        PARSE(buf, *pos, unsigned char, header->kill_queen_bee);
+
+    if (wld->ver >= 44) {
+        PARSE(buf, *pos, unsigned char, header->kill_destroyer);
+        PARSE(buf, *pos, unsigned char, header->kill_twins);
+        PARSE(buf, *pos, unsigned char, header->kill_skeletron_prime);
+        PARSE(buf, *pos, unsigned char, header->kill_hm_boss);
     }
 
-    if (spWld->aVer >= 208 && spWld->aVer < 209) {
-        PARSE(pBuf, *pPos, u8, pHeader->aMaster);
+    if (wld->ver >= 64) {
+        PARSE(buf, *pos, unsigned char, header->kill_plantera);
+        PARSE(buf, *pos, unsigned char, header->kill_golem);
     }
 
-    if (spWld->aVer >= 141) {
-        PARSE(pBuf, *pPos, s64, pHeader->aCreationTime);
+    if (wld->ver >= 118)
+        PARSE(buf, *pos, unsigned char, header->kill_king_slime);
+
+    if (wld->ver >= 29) {
+        PARSE(buf, *pos, unsigned char, header->saved_tinkerer);
+        PARSE(buf, *pos, unsigned char, header->saved_wizard);
     }
 
-    if (spWld->aVer >= 63) {
-        PARSE(pBuf, *pPos, u8, pHeader->aMoonType);
+    if (wld->ver >= 34)
+        PARSE(buf, *pos, unsigned char, header->saved_mechanic);
+
+    if (wld->ver >= 29)
+        PARSE(buf, *pos, unsigned char, header->kill_goblin);
+
+    if (wld->ver >= 32)
+        PARSE(buf, *pos, unsigned char, header->kill_clown);
+
+    if (wld->ver >= 37)
+        PARSE(buf, *pos, unsigned char, header->kill_frost);
+
+    if (wld->ver >= 56)
+        PARSE(buf, *pos, unsigned char, header->kill_pirate);
+
+    PARSE(buf, *pos, unsigned char, header->broke_orb);
+    PARSE(buf, *pos, unsigned char, header->meteor);
+    PARSE(buf, *pos, unsigned char, header->orb_smashed);
+
+    if (wld->ver >= 23) {
+        PARSE(buf, *pos, int, header->altar_count);
+        PARSE(buf, *pos, unsigned char, header->hardmode);
     }
 
-    if (spWld->aVer >= 44) {
-        PARSE_ARRAY(pBuf, *pPos, s32, pHeader->aTreeX, 3);
-        PARSE_ARRAY(pBuf, *pPos, s32, pHeader->aTreeStyles, 4);
+    PARSE(buf, *pos, int, header->invasion_delay);
+    PARSE(buf, *pos, int, header->invasion_size);
+    PARSE(buf, *pos, int, header->invasion_type);
+    PARSE(buf, *pos, double, header->invasion_x);
+
+    if (wld->ver >= 118)
+        PARSE(buf, *pos, double, header->slime_rain_time);
+
+    if (wld->ver >= 113)
+        PARSE(buf, *pos, unsigned char, header->sundial_cooldown);
+
+    if (wld->ver >= 53) {
+        PARSE(buf, *pos, unsigned char, header->is_raining);
+        PARSE(buf, *pos, int, header->rain_time);
+        PARSE(buf, *pos, float, header->max_rain);
     }
 
-    if (spWld->aVer >= 60) {
-        PARSE_ARRAY(pBuf, *pPos, s32, pHeader->aCaveBackX, 3);
-        PARSE_ARRAY(pBuf, *pPos, s32, pHeader->aCaveBackStyle, 4);
-
-        PARSE(pBuf, *pPos, s32, pHeader->aIceBackStyle);
+    if (wld->ver >= 54) {
+        PARSE(buf, *pos, int, header->ore_tier_1);
+        PARSE(buf, *pos, int, header->ore_tier_2);
+        PARSE(buf, *pos, int, header->ore_tier_3);
     }
 
-    if (spWld->aVer >= 61) {
-        PARSE(pBuf, *pPos, s32, pHeader->aJungleBackStyle);
-        PARSE(pBuf, *pPos, s32, pHeader->aHellBackStyle);
+    if (wld->ver >= 55) {
+        PARSE(buf, *pos, unsigned char, header->tree_style);
+        PARSE(buf, *pos, unsigned char, header->corruption_style);
+        PARSE(buf, *pos, unsigned char, header->jungle_style);
     }
 
-    PARSE(pBuf, *pPos, s32, pHeader->aSpawnX);
-    PARSE(pBuf, *pPos, s32, pHeader->aSpawnY);
-    PARSE(pBuf, *pPos, f64, pHeader->aGroundLevel);
-    PARSE(pBuf, *pPos, f64, pHeader->aRockLevel);
-    PARSE(pBuf, *pPos, f64, pHeader->aTime);
-    PARSE(pBuf, *pPos, u8, pHeader->aDay);
-    PARSE(pBuf, *pPos, s32, pHeader->aMoonPhase);
-    PARSE(pBuf, *pPos, u8, pHeader->aBloodMoon);
-
-    if (spWld->aVer >= 63) {
-        PARSE(pBuf, *pPos, u8, pHeader->aIsEclipse);
+    if (wld->ver >= 60) {
+        PARSE(buf, *pos, unsigned char, header->snow_style);
+        PARSE(buf, *pos, unsigned char, header->hallow_style);
+        PARSE(buf, *pos, unsigned char, header->crimson_style);
+        PARSE(buf, *pos, unsigned char, header->desert_style);
+        PARSE(buf, *pos, unsigned char, header->ocean_style);
+        PARSE(buf, *pos, int, header->cloud_bg);
     }
 
-    PARSE(pBuf, *pPos, s32, pHeader->aDungeonX);
-    PARSE(pBuf, *pPos, s32, pHeader->aDungeonY);
-
-    if (spWld->aVer >= 56) {
-        PARSE(pBuf, *pPos, u8, pHeader->aIsCrimson);
+    if (wld->ver >= 62) {
+        PARSE(buf, *pos, short, header->num_clouds);
+        PARSE(buf, *pos, float, header->wind_speed);
     }
 
-    PARSE(pBuf, *pPos, u8, pHeader->aKilledEoc);
-    PARSE(pBuf, *pPos, u8, pHeader->aKilledEvilBoss);
-    PARSE(pBuf, *pPos, u8, pHeader->aKilledSkeletron);
+    if (wld->ver >= 95) {
+        PARSE(buf, *pos, int, header->players);
 
-    if (spWld->aVer >= 66) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledQueenBee);
+        header->playernames = (char **)malloc(sizeof(char *) * header->players);
+        int i;
+
+        for (i = 0; i < header->players; i++)
+            header->playernames[i] = parse_string(buf, pos);
     }
 
-    if (spWld->aVer >= 44) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledDestroyer);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledTwins);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledSkeletronPrime);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledHMBoss);
-    }
+    if (wld->ver >= 99)
+        PARSE(buf, *pos, unsigned char, header->saved_angler);
 
-    if (spWld->aVer >= 64) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledPlantBoss);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledGolemBoss);
-    }
+    if (wld->ver >= 101)
+        PARSE(buf, *pos, int, header->angler_quest);
 
-    if (spWld->aVer >= 118) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledKingSlime);
-    }
+    if (wld->ver >= 104)
+        PARSE(buf, *pos, unsigned char, header->saved_stylist);
 
-    if (spWld->aVer >= 29) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSavedTinkerer);
-        PARSE(pBuf, *pPos, u8, pHeader->aSavedWizard);
-    }
+    if (wld->ver >= 129)
+        PARSE(buf, *pos, unsigned char, header->saved_tax_collector);
 
-    if (spWld->aVer >= 34) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSavedMechanic);
-    }
+    if (wld->ver >= 201)
+        PARSE(buf, *pos, unsigned char, header->saved_golfer);
 
-    if (spWld->aVer >= 29) {
-        PARSE(pBuf, *pPos, u8, pHeader->aDefeatedGoblins);
-    }
+    if (wld->ver >= 107)
+        PARSE(buf, *pos, int, header->invasion_start_size);
 
-    if (spWld->aVer >= 32) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledClown);
-    }
+    if (wld->ver >= 108)
+        PARSE(buf, *pos, int, header->cultist_delay);
 
-    if (spWld->aVer >= 37) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledFrost);
-    }
+    if (wld->ver >= 109) {
+        PARSE(buf, *pos, short, header->kill_count_len);
 
-    if (spWld->aVer >= 56) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledPirates);
-    }
-
-    PARSE(pBuf, *pPos, u8, pHeader->aBrokeOrb);
-    PARSE(pBuf, *pPos, u8, pHeader->aMeteor);
-    PARSE(pBuf, *pPos, u8, pHeader->aShadowOrbSmashed);
-
-    if (spWld->aVer >= 23) {
-        PARSE(pBuf, *pPos, s32, pHeader->aAltarCount);
-        PARSE(pBuf, *pPos, u8, pHeader->aHardMode);
-    }
-
-    PARSE(pBuf, *pPos, s32, pHeader->aInvasionDelay);
-    PARSE(pBuf, *pPos, s32, pHeader->aInvasionSize);
-    PARSE(pBuf, *pPos, s32, pHeader->aInvasionType);
-    PARSE(pBuf, *pPos, f64, pHeader->aInvasionX);
-
-    if (spWld->aVer >= 118) {
-        PARSE(pBuf, *pPos, f64, pHeader->aSlimeRainTime);
-    }
-
-    if (spWld->aVer >= 113) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSundialCooldown);
-    }
-
-    if (spWld->aVer >= 53) {
-        PARSE(pBuf, *pPos, u8, pHeader->aIsRaining);
-        PARSE(pBuf, *pPos, s32, pHeader->aRainTime);
-        PARSE(pBuf, *pPos, f32, pHeader->aMaxRain);
-    }
-
-    if (spWld->aVer >= 54) {
-        PARSE(pBuf, *pPos, s32, pHeader->aOreTier1);
-        PARSE(pBuf, *pPos, s32, pHeader->aOreTier2);
-        PARSE(pBuf, *pPos, s32, pHeader->aOreTier3);
-    }
-
-    if (spWld->aVer >= 55) {
-        PARSE(pBuf, *pPos, u8, pHeader->aTreeStyle);
-        PARSE(pBuf, *pPos, u8, pHeader->aCorruptionStyle);
-        PARSE(pBuf, *pPos, u8, pHeader->aJungleStyle);
-    }
-
-    if (spWld->aVer >= 60) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSnowStyle);
-        PARSE(pBuf, *pPos, u8, pHeader->aHallowStyle);
-        PARSE(pBuf, *pPos, u8, pHeader->aCrimsonStyle);
-        PARSE(pBuf, *pPos, u8, pHeader->aDesertStyle);
-        PARSE(pBuf, *pPos, u8, pHeader->aOceanStyle);
-        PARSE(pBuf, *pPos, s32, pHeader->aCloudBG);
-    }
-
-    if (spWld->aVer >= 62) {
-        PARSE(pBuf, *pPos, s16, pHeader->aNumClouds);
-        PARSE(pBuf, *pPos, f32, pHeader->aWindSpeed);
-    }
-
-    if (spWld->aVer >= 95) {
-        PARSE(pBuf, *pPos, s32, pHeader->aPlayers);
-
-        pHeader->apPlayerNames = (s8 **)malloc(sizeof(char *) * pHeader->aPlayers);
-        for (int i = 0; i < pHeader->aPlayers; i++) {
-            pHeader->apPlayerNames[i] = parse_string(pBuf, pPos);
-        }
-    }
-
-    if (spWld->aVer >= 99) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSavedAngler);
-    }
-
-    if (spWld->aVer >= 101) {
-        PARSE(pBuf, *pPos, s32, pHeader->aAnglerQuest);
-    }
-
-    if (spWld->aVer >= 104) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSavedStylist);
-    }
-
-    if (spWld->aVer >= 129) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSavedTaxCollector);
-    }
-
-    if (spWld->aVer >= 201) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSavedGolfer);
-    }
-
-    if (spWld->aVer >= 107) {
-        PARSE(pBuf, *pPos, s32, pHeader->aInvasionStartSize);
-    }
-
-    if (spWld->aVer >= 108) {
-        PARSE(pBuf, *pPos, s32, pHeader->aCultistDelay);
-    }
-
-    if (spWld->aVer >= 109) {
-        PARSE(pBuf, *pPos, s16, pHeader->aKillCountLen);
-
-        pHeader->apKillCounts = (s32 *)malloc(sizeof(s32) * pHeader->aKillCountLen);
-        if (!pHeader->apKillCounts) {
-            fprintf(stderr, "wld_header_parse( wld_t* ): Failed to allocate memory for kill counts\n");
+        header->kill_counts = (int *)malloc(sizeof(int) * header->kill_count_len);
+        if (header->kill_counts == (int *)0x0) {
+            LOGF_ERR("Failed to allocate memory for kill counts\n");
             return 0;
         }
 
-        PARSE_ARRAY(pBuf, *pPos, s32, pHeader->apKillCounts, pHeader->aKillCountLen);
+        PARSE_ARRAY(buf, *pos, int, header->kill_counts, header->kill_count_len);
     }
 
-    if (spWld->aVer >= 128) {
-        PARSE(pBuf, *pPos, u8, pHeader->aFastForwardTime);
+    if (wld->ver >= 128)
+        PARSE(buf, *pos, unsigned char, header->fast_forward_time);
+
+    if (wld->ver >= 131) {
+        PARSE(buf, *pos, unsigned char, header->kill_fishron);
+        PARSE(buf, *pos, unsigned char, header->kill_martian);
+        PARSE(buf, *pos, unsigned char, header->kill_cultist);
+        PARSE(buf, *pos, unsigned char, header->kill_moonlord);
+        PARSE(buf, *pos, unsigned char, header->kill_pumpking);
+        PARSE(buf, *pos, unsigned char, header->kill_wood);
+        PARSE(buf, *pos, unsigned char, header->kill_ice_queen);
+        PARSE(buf, *pos, unsigned char, header->kill_tank);
+        PARSE(buf, *pos, unsigned char, header->kill_everscream);
     }
 
-    if (spWld->aVer >= 131) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledFishron);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledMartians);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledCultist);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledMoonLord);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledHalloweenKing);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledHalloweenTree);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledChristmasIceQueen);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledChristmasSantank);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledChristmasTree);
+    if (wld->ver >= 140) {
+        PARSE(buf, *pos, unsigned char, header->kill_solar);
+        PARSE(buf, *pos, unsigned char, header->kill_vortex);
+        PARSE(buf, *pos, unsigned char, header->kill_nebula);
+        PARSE(buf, *pos, unsigned char, header->kill_stardust);
+        PARSE(buf, *pos, unsigned char, header->active_solar);
+        PARSE(buf, *pos, unsigned char, header->active_vortex);
+        PARSE(buf, *pos, unsigned char, header->active_nebula);
+        PARSE(buf, *pos, unsigned char, header->active_stardust);
+        PARSE(buf, *pos, unsigned char, header->active_lunar);
     }
 
-    if (spWld->aVer >= 140) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledSolar);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledVortex);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledNebula);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledStardust);
-        PARSE(pBuf, *pPos, u8, pHeader->aActiveSolar);
-        PARSE(pBuf, *pPos, u8, pHeader->aActiveVortex);
-        PARSE(pBuf, *pPos, u8, pHeader->aActiveNebula);
-        PARSE(pBuf, *pPos, u8, pHeader->aActiveStardust);
-        PARSE(pBuf, *pPos, u8, pHeader->aActiveLunarApocalypse);
-    }
+    if (wld->ver >= 170) {
+        PARSE(buf, *pos, unsigned char, header->manual_party);
+        PARSE(buf, *pos, unsigned char, header->invite_party);
+        PARSE(buf, *pos, int, header->party_cooldown);
+        PARSE(buf, *pos, int, header->partier_len);
 
-    if (spWld->aVer >= 170) {
-        PARSE(pBuf, *pPos, u8, pHeader->aManualParty);
-        PARSE(pBuf, *pPos, u8, pHeader->aInviteParty);
-        PARSE(pBuf, *pPos, s32, pHeader->aPartyCooldown);
-        PARSE(pBuf, *pPos, s32, pHeader->aPartierLen);
-
-        pHeader->apPartiers = (s32 *)malloc(sizeof(s32) * pHeader->aPartierLen);
-        if (!pHeader->apPartiers) {
-            fprintf(stderr, "wld_header_parse( wld_t* ): Failed to allocate memory for partiers\n");
+        header->partiers = (int *)malloc(sizeof(int) * header->partier_len);
+        if (header->partiers == (int *)0x0) {
+            LOGF_ERR("Failed to allocate memory for partiers\n");
             return 0;
         }
-        PARSE_ARRAY(pBuf, *pPos, s32, pHeader->apPartiers, pHeader->aPartierLen);
+        PARSE_ARRAY(buf, *pos, int, header->partiers, header->partier_len);
     }
 
-    if (spWld->aVer >= 174) {
-        PARSE(pBuf, *pPos, u8, pHeader->aActiveSandstorm);
-        PARSE(pBuf, *pPos, s32, pHeader->aSandstormTime);
-        PARSE(pBuf, *pPos, f32, pHeader->aSandstormSeverity);
-        PARSE(pBuf, *pPos, f32, pHeader->aSandstormMaxSeverity);
+    if (wld->ver >= 174) {
+        PARSE(buf, *pos, unsigned char, header->active_sandstorm);
+        PARSE(buf, *pos, int, header->sandstorm_time);
+        PARSE(buf, *pos, float, header->sandstorm_severity);
+        PARSE(buf, *pos, float, header->sandstorm_max_severity);
     }
 
-    if (spWld->aVer >= 178) {
-        PARSE(pBuf, *pPos, u8, pHeader->aSavedBartender);
-        PARSE(pBuf, *pPos, u8, pHeader->aDownedDD2Inv1);
-        PARSE(pBuf, *pPos, u8, pHeader->aDownedDD2Inv2);
-        PARSE(pBuf, *pPos, u8, pHeader->aDownedDD2Inv3);
+    if (wld->ver >= 178) {
+        PARSE(buf, *pos, unsigned char, header->saved_bartender);
+        PARSE(buf, *pos, unsigned char, header->kill_dd2_1);
+        PARSE(buf, *pos, unsigned char, header->kill_dd2_2);
+        PARSE(buf, *pos, unsigned char, header->kill_dd2_3);
     }
 
-    if (spWld->aVer >= 195) {
-        PARSE(pBuf, *pPos, u8, pHeader->aStyle8);
+    if (wld->ver >= 195)
+        PARSE(buf, *pos, unsigned char, header->style_8);
+
+    if (wld->ver >= 215)
+        PARSE(buf, *pos, unsigned char, header->style_9);
+
+    if (wld->ver >= 196) {
+        PARSE(buf, *pos, unsigned char, header->style_10);
+        PARSE(buf, *pos, unsigned char, header->style_11);
+        PARSE(buf, *pos, unsigned char, header->style_12);
     }
 
-    if (spWld->aVer >= 215) {
-        PARSE(pBuf, *pPos, u8, pHeader->aStyle9);
+    if (wld->ver >= 204)
+        PARSE(buf, *pos, unsigned char, header->combat_book);
+
+    if (wld->ver >= 207) {
+        PARSE(buf, *pos, int, header->lantern_night_cooldown);
+        PARSE(buf, *pos, unsigned char, header->lantern_night);
+        PARSE(buf, *pos, unsigned char, header->manual_lantern_night);
+        PARSE(buf, *pos, unsigned char, header->next_lantern_real);
     }
 
-    if (spWld->aVer >= 196) {
-        PARSE(pBuf, *pPos, u8, pHeader->aStyle10);
-        PARSE(pBuf, *pPos, u8, pHeader->aStyle11);
-        PARSE(pBuf, *pPos, u8, pHeader->aStyle12);
-    }
+    if (wld->ver >= 211) {
+        PARSE(buf, *pos, int, header->tree_tops_len);
 
-    if (spWld->aVer >= 204) {
-        PARSE(pBuf, *pPos, u8, pHeader->aCombatBookWasUsed);
-    }
-
-    if (spWld->aVer >= 207) {
-        PARSE(pBuf, *pPos, s32, pHeader->aLanternNightCooldown);
-        PARSE(pBuf, *pPos, u8, pHeader->aLanternNight);
-        PARSE(pBuf, *pPos, u8, pHeader->aManualLanternNight);
-        PARSE(pBuf, *pPos, u8, pHeader->aNextLanternWillBeGenuine);
-    }
-
-    if (spWld->aVer >= 211) {
-        PARSE(pBuf, *pPos, s32, pHeader->aTreeTopsLen);
-
-        pHeader->apTreeTops = (s32 *)malloc(sizeof(s32) * pHeader->aTreeTopsLen);
-        if (!pHeader->apTreeTops) {
-            fprintf(stderr, "wld_header_parse( wld_t* ): Failed to allocate memory for tree tops\n");
+        header->tree_tops = (int *)malloc(sizeof(int) * header->tree_tops_len);
+        if (header->tree_tops == (int *)0x0) {
+            LOGF_ERR("Failed to allocate memory for tree tops\n");
             return 0;
         }
-        PARSE_ARRAY(pBuf, *pPos, s32, pHeader->apTreeTops, pHeader->aTreeTopsLen);
+
+        PARSE_ARRAY(buf, *pos, int, header->tree_tops, header->tree_tops_len);
     }
 
-    if (spWld->aVer >= 212) {
-        PARSE(pBuf, *pPos, u8, pHeader->aForcedHalloween);
-        PARSE(pBuf, *pPos, u8, pHeader->aForcedChristmas);
+    if (wld->ver >= 212) {
+        PARSE(buf, *pos, unsigned char, header->forced_halloween);
+        PARSE(buf, *pos, unsigned char, header->forced_christmas);
     }
 
-    if (spWld->aVer >= 216) {
-        PARSE(pBuf, *pPos, s32, pHeader->aCopperId);
-        PARSE(pBuf, *pPos, s32, pHeader->aIronId);
-        PARSE(pBuf, *pPos, s32, pHeader->aSilverId);
-        PARSE(pBuf, *pPos, s32, pHeader->aGoldId);
+    if (wld->ver >= 216) {
+        PARSE(buf, *pos, int, header->copper_id);
+        PARSE(buf, *pos, int, header->iron_id);
+        PARSE(buf, *pos, int, header->silver_id);
+        PARSE(buf, *pos, int, header->gold_id);
     }
 
-    if (spWld->aVer >= 217) {
-        PARSE(pBuf, *pPos, u8, pHeader->aBoughtCat);
-        PARSE(pBuf, *pPos, u8, pHeader->aBoughtDog);
-        PARSE(pBuf, *pPos, u8, pHeader->aBoughtBunny);
+    if (wld->ver >= 217) {
+        PARSE(buf, *pos, unsigned char, header->bought_cat);
+        PARSE(buf, *pos, unsigned char, header->bought_dog);
+        PARSE(buf, *pos, unsigned char, header->bought_bunny);
     }
 
-    if (spWld->aVer >= 223) {
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledEoL);
-        PARSE(pBuf, *pPos, u8, pHeader->aKilledQueenSlime);
+    if (wld->ver >= 223) {
+        PARSE(buf, *pos, unsigned char, header->kill_eol);
+        PARSE(buf, *pos, unsigned char, header->kill_queen_slime);
     }
 #if DEBUG
-    wld_header_dump(spWld->aHeader);
+    wld_header_dump(spWld->header);
 #endif /* DEBUG  */
     return 1;
 }
+
 /*
  *    Returns the world info header as a buffer.
  *
- *    @param wld_t *
- *        The world to get the header from.
- *    @param u32 *
- *        The length of the header.
+ *    @param wld_t *wld      The world to get the header from.
+ *    @param unsigned int   *len      The length of the header.
  *
- *    @return s8 *
- *        The world info header.
+ *    @return char *           The world info header.
  */
-s8 *wld_info_get_header(wld_t *spWld, u32 *spLen) {
-    static s8 pBuf[WLD_INFO_HEADER_LEN] = {0};
-    memcpy(pBuf, &spWld->aInfo, WLD_INFO_HEADER_LEN);
-    memcpy(pBuf + sizeof(wld_info_header_t) - sizeof(spWld->aInfo.aTileMask), spWld->aInfo.apUVs, spWld->aInfo.aTileMask / 8);
-    *spLen = sizeof(wld_info_header_t) - sizeof(spWld->aInfo.aTileMask) + spWld->aInfo.aTileMask / 8;
+char *wld_info_get_header(wld_t *wld, unsigned int *len) {
+    static char buf[WLD_INFO_HEADER_LEN];
 
-    return pBuf;
+    memcpy(buf, &wld->info, WLD_INFO_HEADER_LEN);
+    memcpy(buf + sizeof(wld_info_header_t) - sizeof(wld->info.tilemask), wld->info.uvs, wld->info.tilemask / 8);
+
+    *len = sizeof(wld_info_header_t) - sizeof(wld->info.tilemask) + wld->info.tilemask / 8;
+
+    return buf;
 }
+
 /*
  *    Returns the world format header as a buffer.
  *
- *    @param wld_t *
- *        The world to get the header from.
- *    @param u32 *
- *        The length of the header.
+ *    @param wld_t *wld    The world to get the header from.
+ *    @param unsigned int   *len    The length of the header.
  *
- *    @return s8 *
- *        The world format header.
+ *    @return char *         The world format header.
  */
-s8 *wld_header_get_header(wld_t *spWld, u32 *spLen) {
-    static s8 pBuf[WLD_HEADER_LEN] = {0};
-    memcpy(pBuf, &spWld->aHeader, WLD_HEADER_LEN);
-    *spLen = sizeof(wld_header_t);
+char *wld_header_get_header(wld_t *wld, unsigned int *len) {
+    static char pBuf[WLD_HEADER_LEN];
+
+    memcpy(pBuf, &wld->header, WLD_HEADER_LEN);
+
+    *len = sizeof(wld_header_t);
 
     return pBuf;
 }
+
 /*
  *    Dumps the contents of the world format header to stdout.
  *
- *    @param wld_header_t
- *        The header to dump.
+ *    @param wld_header_t header    The header to dump.
  */
-void wld_header_dump(wld_header_t sHeader) {
+void wld_header_dump(wld_header_t header) {
     printf("World Header:\n");
-    printf("    Name:                   %s\n", sHeader.apName);
-    printf("    Seed:                   %s\n", sHeader.apSeed);
+    printf("    Name:                   %s\n", header.name);
+    printf("    Seed:                   %s\n", header.seed);
     printf("    GUID:                   %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
-           sHeader.aGuid[0], sHeader.aGuid[1], sHeader.aGuid[2], sHeader.aGuid[3],
-           sHeader.aGuid[4], sHeader.aGuid[5], sHeader.aGuid[6], sHeader.aGuid[7],
-           sHeader.aGuid[8], sHeader.aGuid[9], sHeader.aGuid[10], sHeader.aGuid[11],
-           sHeader.aGuid[12], sHeader.aGuid[13], sHeader.aGuid[14], sHeader.aGuid[15]);
+           header.guid[0], header.guid[1], header.guid[2], header.guid[3],
+           header.guid[4], header.guid[5], header.guid[6], header.guid[7],
+           header.guid[8], header.guid[9], header.guid[10], header.guid[11],
+           header.guid[12], header.guid[13], header.guid[14], header.guid[15]);
 
-    printf("    ID:                     %d\n", sHeader.aId);
-    printf("    Bounds:                 %d, %d, %d, %d\n", sHeader.aBounds.x0, sHeader.aBounds.x, sHeader.aBounds.y0, sHeader.aBounds.y);
-    printf("    Height:                 %d\n", sHeader.aHeight);
-    printf("    Width:                  %d\n", sHeader.aWidth);
-    printf("    Game Mode:              %d\n", sHeader.aGameMode);
-    printf("    Drunk:                  %d\n", sHeader.aDrunk);
-    printf("    FTW:                    %d\n", sHeader.aFtw);
-    printf("    Expert:                 %d\n", sHeader.aExpert);
-    printf("    Master:                 %d\n", sHeader.aMaster);
-    printf("    Creation:               %ld\n", sHeader.aCreationTime);
-    printf("    Moon Type:              %d\n", sHeader.aMoonType);
-    printf("    Tree X:                 %d, %d, %d\n", sHeader.aTreeX[0], sHeader.aTreeX[1], sHeader.aTreeX[2]);
-    printf("    Tree Style:             %d, %d, %d, %d\n", sHeader.aTreeStyles[0], sHeader.aTreeStyles[1], sHeader.aTreeStyles[2], sHeader.aTreeStyles[3]);
-    printf("    Cave X:                 %d, %d, %d\n", sHeader.aCaveBackX[0], sHeader.aCaveBackX[1], sHeader.aCaveBackX[2]);
-    printf("    Cave Style:             %d, %d, %d, %d\n", sHeader.aCaveBackStyle[0], sHeader.aCaveBackStyle[1], sHeader.aCaveBackStyle[2], sHeader.aCaveBackStyle[3]);
-    printf("    Ice Style:              %d\n", sHeader.aIceBackStyle);
-    printf("    Jungle Style:           %d\n", sHeader.aJungleBackStyle);
-    printf("    Hell Style:             %d\n", sHeader.aHellBackStyle);
-    printf("    Spawn X:                %d\n", sHeader.aSpawnX);
-    printf("    Spawn Y:                %d\n", sHeader.aSpawnY);
-    printf("    Ground Level:           %f\n", sHeader.aGroundLevel);
-    printf("    Rock Level:             %f\n", sHeader.aRockLevel);
-    printf("    Time:                   %f\n", sHeader.aTime);
-    printf("    Day:                    %d\n", sHeader.aDay);
-    printf("    Moon Phase:             %d\n", sHeader.aMoonPhase);
-    printf("    Blood Moon:             %d\n", sHeader.aBloodMoon);
-    printf("    Eclipse:                %d\n", sHeader.aIsEclipse);
-    printf("    Dungeon X:              %d\n", sHeader.aDungeonX);
-    printf("    Dungeon Y:              %d\n", sHeader.aDungeonY);
-    printf("    Crimson:                %d\n", sHeader.aIsCrimson);
-    printf("    Killed Eoc:             %d\n", sHeader.aKilledEoc);
-    printf("    Killed Evil Boss:       %d\n", sHeader.aKilledEvilBoss);
-    printf("    Killed Skeletron:       %d\n", sHeader.aKilledSkeletron);
-    printf("    Killed Queen Bee:       %d\n", sHeader.aKilledQueenBee);
-    printf("    Killed Destroyer:       %d\n", sHeader.aKilledDestroyer);
-    printf("    Killed Twins:           %d\n", sHeader.aKilledTwins);
-    printf("    Killed Skeletron Prime: %d\n", sHeader.aKilledSkeletronPrime);
-    printf("    Killed Plantera:        %d\n", sHeader.aKilledPlantBoss);
-    printf("    Killed Golem:           %d\n", sHeader.aKilledGolemBoss);
-    printf("    Killed King Slime:      %d\n", sHeader.aKilledKingSlime);
-    printf("    Saved Tinkerer:         %d\n", sHeader.aSavedTinkerer);
-    printf("    Saved Wizard:           %d\n", sHeader.aSavedWizard);
-    printf("    Saved Mechanic:         %d\n", sHeader.aSavedMechanic);
-    printf("    Defeated Goblins:       %d\n", sHeader.aDefeatedGoblins);
-    printf("    Killed Clown:           %d\n", sHeader.aKilledClown);
-    printf("    Killed Pirates:         %d\n", sHeader.aKilledPirates);
-    printf("    Broke Orb:              %d\n", sHeader.aBrokeOrb);
-    printf("    Meteor Fell:            %d\n", sHeader.aMeteor);
-    printf("    Smashed Orbs:           %d\n", sHeader.aShadowOrbSmashed);
-    printf("    Altars Destroyed:       %d\n", sHeader.aAltarCount);
-    printf("    Hardmode:               %d\n", sHeader.aHardMode);
-    printf("    Invasion Delay:         %d\n", sHeader.aInvasionDelay);
-    printf("    Invasion Size:          %d\n", sHeader.aInvasionSize);
-    printf("    Invasion Type:          %d\n", sHeader.aInvasionType);
-    printf("    Invasion X:             %f\n", sHeader.aInvasionX);
-    printf("    Slime Rain Time:        %f\n", sHeader.aSlimeRainTime);
-    printf("    Sundial Cooldown:       %d\n", sHeader.aSundialCooldown);
-    printf("    Raining:                %d\n", sHeader.aIsRaining);
-    printf("    Rain Time:              %d\n", sHeader.aRainTime);
-    printf("    Max Rain:               %f\n", sHeader.aMaxRain);
-    printf("    Tier 1 Ore:             %d\n", sHeader.aOreTier1);
-    printf("    Tier 2 Ore:             %d\n", sHeader.aOreTier2);
-    printf("    Tier 3 Ore:             %d\n", sHeader.aOreTier3);
-    printf("    Tree Style:             %d\n", sHeader.aTreeStyle);
-    printf("    Corruption Style:       %d\n", sHeader.aCorruptionStyle);
+    printf("    ID:                     %d\n", header.id);
+    printf("    Bounds:                 %d, %d, %d, %d\n", header.bounds.x0, header.bounds.x, header.bounds.y0, header.bounds.y);
+    printf("    Height:                 %d\n", header.height);
+    printf("    Width:                  %d\n", header.width);
+    printf("    Game Mode:              %d\n", header.gamemode);
+    printf("    Drunk:                  %d\n", header.drunk);
+    printf("    FTW:                    %d\n", header.ftw);
+    printf("    Expert:                 %d\n", header.expert);
+    printf("    Master:                 %d\n", header.master);
+    printf("    Creation:               %ld\n", header.creation_time);
+    printf("    Moon Type:              %d\n", header.moon_type);
+    printf("    Tree X:                 %d, %d, %d\n", header.tree_x[0], header.tree_x[1], header.tree_x[2]);
+    printf("    Tree Style:             %d, %d, %d, %d\n", header.tree_styles[0], header.tree_styles[1], header.tree_styles[2], header.tree_styles[3]);
+    printf("    Cave X:                 %d, %d, %d\n", header.cave_back_x[0], header.cave_back_x[1], header.cave_back_x[2]);
+    printf("    Cave Style:             %d, %d, %d, %d\n", header.cave_back_style[0], header.cave_back_style[1], header.cave_back_style[2], header.cave_back_style[3]);
+    printf("    Ice Style:              %d\n", header.ice_back_style);
+    printf("    Jungle Style:           %d\n", header.jungle_back_style);
+    printf("    Hell Style:             %d\n", header.hell_back_style);
+    printf("    Spawn X:                %d\n", header.spawn_x);
+    printf("    Spawn Y:                %d\n", header.spawn_y);
+    printf("    Ground Level:           %f\n", header.ground_level);
+    printf("    Rock Level:             %f\n", header.rock_level);
+    printf("    Time:                   %f\n", header.time);
+    printf("    Day:                    %d\n", header.day);
+    printf("    Moon Phase:             %d\n", header.moon_phase);
+    printf("    Blood Moon:             %d\n", header.blood_moon);
+    printf("    Eclipse:                %d\n", header.eclipse);
+    printf("    Dungeon X:              %d\n", header.dungeon_x);
+    printf("    Dungeon Y:              %d\n", header.dungeon_y);
+    printf("    Crimson:                %d\n", header.crimson);
+    printf("    Killed Eoc:             %d\n", header.kill_eoc);
+    printf("    Killed Evil Boss:       %d\n", header.kill_evil_boss);
+    printf("    Killed Skeletron:       %d\n", header.kill_skeletron);
+    printf("    Killed Queen Bee:       %d\n", header.kill_queen_bee);
+    printf("    Killed Destroyer:       %d\n", header.kill_destroyer);
+    printf("    Killed Twins:           %d\n", header.kill_twins);
+    printf("    Killed Skeletron Prime: %d\n", header.kill_skeletron_prime);
+    printf("    Killed Plantera:        %d\n", header.kill_plantera);
+    printf("    Killed Golem:           %d\n", header.kill_golem);
+    printf("    Killed King Slime:      %d\n", header.kill_king_slime);
+    printf("    Saved Tinkerer:         %d\n", header.saved_tinkerer);
+    printf("    Saved Wizard:           %d\n", header.saved_wizard);
+    printf("    Saved Mechanic:         %d\n", header.saved_mechanic);
+    printf("    Defeated Goblins:       %d\n", header.kill_goblin);
+    printf("    Killed Clown:           %d\n", header.kill_clown);
+    printf("    Killed Pirates:         %d\n", header.kill_pirate);
+    printf("    Broke Orb:              %d\n", header.broke_orb);
+    printf("    Meteor Fell:            %d\n", header.meteor);
+    printf("    Smashed Orbs:           %d\n", header.orb_smashed);
+    printf("    Altars Destroyed:       %d\n", header.altar_count);
+    printf("    Hardmode:               %d\n", header.hardmode);
+    printf("    Invasion Delay:         %d\n", header.invasion_delay);
+    printf("    Invasion Size:          %d\n", header.invasion_size);
+    printf("    Invasion Type:          %d\n", header.invasion_type);
+    printf("    Invasion X:             %f\n", header.invasion_x);
+    printf("    Slime Rain Time:        %f\n", header.slime_rain_time);
+    printf("    Sundial Cooldown:       %d\n", header.sundial_cooldown);
+    printf("    Raining:                %d\n", header.is_raining);
+    printf("    Rain Time:              %d\n", header.rain_time);
+    printf("    Max Rain:               %f\n", header.max_rain);
+    printf("    Tier 1 Ore:             %d\n", header.ore_tier_1);
+    printf("    Tier 2 Ore:             %d\n", header.ore_tier_2);
+    printf("    Tier 3 Ore:             %d\n", header.ore_tier_3);
+    printf("    Tree Style:             %d\n", header.tree_style);
+    printf("    Corruption Style:       %d\n", header.corruption_style);
 }
+
 /*
  *    Dumps the contents of the world info header to stdout.
  *
- *    @param wld_info_header_t
- *        The header to dump.
+ *    @param wld_info_header_t info    The header to dump.
  */
-void wld_info_header_dump(wld_info_header_t sInfo) {
+void wld_info_header_dump(wld_info_header_t info) {
+    short i;
     printf("World Info Header:\n");
-    printf("    Version:      %d\n", sInfo.aVer);
-    printf("    Signature:    %s\n", sInfo.aSig);
-    printf("    World Type:   %d\n", sInfo.aWorldType);
-    printf("    Revisions:    %d\n", sInfo.aRevisions);
-    printf("    Favorite:     %ld\n", sInfo.aFavorite);
-    printf("    Num Sections: %d\n", sInfo.aNumSections);
+    printf("    Version:      %d\n", info.ver);
+    printf("    Signature:    %s\n", info.sig);
+    printf("    World Type:   %d\n", info.world_type);
+    printf("    Revisions:    %d\n", info.revisions);
+    printf("    Favorite:     %ld\n", info.favorite);
+    printf("    Num Sections: %d\n", info.numsections);
     printf("    Section Offsets:\n");
-    for (s16 i = 0; i < sInfo.aNumSections; i++) {
-        printf("        %d: %d\n", i, sInfo.apSections[i]);
-    }
+
+    for (i = 0; i < info.numsections; i++)
+        printf("        %d: %d\n", i, info.sections[i]);
+
     printf("\n");
-    printf("    Tile Mask: %d\n", sInfo.aTileMask);
+    printf("    Tile Mask: %d\n", info.tilemask);
     printf("    UVs:\n");
-    for (s16 i = 0; i < sInfo.aTileMask / 8 + 1; i++) {
-        printf("        %d: %d\n", i, sInfo.apUVs[i]);
-    }
+
+    for (i = 0; i < info.tilemask / 8 + 1; i++)
+        printf("        %d: %d\n", i, info.uvs[i]);
+
     printf("\n");
 }
+
 /*
  *    Frees a world info header.
  *
- *    @param wld_info_header_t
- *        The world header to free.
+ *    @param wld_info_header_t header    The world header to free.
  */
-void wld_info_header_free(wld_info_header_t sHeader) {
-    if (sHeader.apSections)
-        free(sHeader.apSections);
-    if (sHeader.apUVs)
-        free(sHeader.apUVs);
+void wld_info_header_free(wld_info_header_t header) {
+    if (header.sections)
+        free(header.sections);
+    if (header.uvs)
+        free(header.uvs);
 }
+
 /*
  *    Frees a world format header.
  *
- *    @param wld_header_t
- *        The world header to free.
+ *    @param wld_header_t    header    The world header to free.
  */
-void wld_header_free(wld_header_t sHeader) {
-    if (sHeader.apName)
-        free(sHeader.apName);
-    if (sHeader.apSeed)
-        free(sHeader.apSeed);
-    if (sHeader.apPlayerNames) {
-        for (s32 i = 0; i < sHeader.aPlayers; i++) {
-            if (sHeader.apPlayerNames[i])
-                free(sHeader.apPlayerNames[i]);
+void wld_header_free(wld_header_t header) {
+    if (header.name)
+        free(header.name);
+
+    if (header.seed)
+        free(header.seed);
+
+    if (header.playernames) {
+        int i;
+        for (i = 0; i < header.players; i++) {
+            if (header.playernames[i])
+                free(header.playernames[i]);
         }
-        free(sHeader.apPlayerNames);
+
+        free(header.playernames);
     }
-    if (sHeader.apKillCounts) {
-        free(sHeader.apKillCounts);
-    }
-    if (sHeader.apPartiers) {
-        free(sHeader.apPartiers);
-    }
-    if (sHeader.apTreeTops) {
-        free(sHeader.apTreeTops);
-    }
+
+    if (header.kill_counts)
+        free(header.kill_counts);
+
+    if (header.partiers)
+        free(header.partiers);
+
+    if (header.tree_tops)
+        free(header.tree_tops);
 }
