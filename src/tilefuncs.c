@@ -19,7 +19,7 @@
 #define TILE_WRITE_WALL_COLOR      (1 << 8)
 #define TILE_WRITE_LIQUID_AMT      (1 << 9)
 #define TILE_WRITE_COPIES          (1 << 10)
-#define TILE_WRITE_COPIEshort      (1 << 11)
+#define TILE_WRITE_COPIES16        (1 << 11)
 
 #include "log.h"
 #include "parseutil.h"
@@ -358,7 +358,7 @@ char *tile_get_buffer(wld_t *wld, unsigned int *size) {
             if (copies) {
                 if (copies > 0xFF) {
                     activeFlags |= 1 << 7;
-                    writeFlags |= TILE_WRITE_COPIEshort;
+                    writeFlags |= TILE_WRITE_COPIES16;
                 } else {
                     activeFlags |= 1 << 6;
                     writeFlags |= TILE_WRITE_COPIES;
@@ -381,7 +381,7 @@ char *tile_get_buffer(wld_t *wld, unsigned int *size) {
             append_u8(&buf, t->liquid_amount, &len, writeFlags, TILE_WRITE_LIQUID_AMT, &ret);
             append_u8(&buf, (unsigned char)((t->wall & 0xFF00) >> 8), &len, writeFlags, TILE_WRITE_WALL_ID16, &ret);
             append_u8(&buf, copies, &len, writeFlags, TILE_WRITE_COPIES, &ret);
-            append_u16(&buf, copies, &len, writeFlags, TILE_WRITE_COPIEshort, &ret);
+            append_u16(&buf, copies, &len, writeFlags, TILE_WRITE_COPIES16, &ret);
 
             if (ret != 0) {
                 LOGF_ERR("failed to write tile\n");

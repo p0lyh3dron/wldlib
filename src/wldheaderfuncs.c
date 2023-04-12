@@ -136,23 +136,45 @@ unsigned int wld_header_parse(wld_t *wld) {
     PARSE(buf, *pos, int, header->height);
     PARSE(buf, *pos, int, header->width);
 
-    if (wld->ver >= 209)
+    if (wld->ver >= 209) {
         PARSE(buf, *pos, int, header->gamemode);
 
-    /* Figure this out later.  */
-    *pos += 3;
+        if (wld->ver >= 222)
+            PARSE(buf, *pos, unsigned char, header->drunk);
 
-    if (wld->ver >= 222)
-        PARSE(buf, *pos, unsigned char, header->drunk);
+        if (wld->ver >= 227)
+            PARSE(buf, *pos, unsigned char, header->ftw);
 
-    if (wld->ver >= 227)
-        PARSE(buf, *pos, unsigned char, header->ftw);
+        if (wld->ver >= 238)
+            PARSE(buf, *pos, unsigned char, header->tenth);
 
-    if (wld->ver >= 112 && wld->ver < 209)
-        PARSE(buf, *pos, unsigned char, header->expert);
+        if (wld->ver >= 239)
+            PARSE(buf, *pos, unsigned char, header->dont_starve);
 
-    if (wld->ver >= 208 && wld->ver < 209)
-        PARSE(buf, *pos, unsigned char, header->master);
+        if (wld->ver >= 241)
+            PARSE(buf, *pos, unsigned char, header->bees);
+        
+        if (wld->ver >= 249)
+            PARSE(buf, *pos, unsigned char, header->remix);
+
+        if (wld->ver >= 266)
+            PARSE(buf, *pos, unsigned char, header->no_traps);
+        
+        if (wld->ver >= 267) {
+            PARSE(buf, *pos, unsigned char, header->zenith);
+        } else {
+            header->zenith = header->remix && header->drunk;
+        }
+    } else {
+        if (wld->ver >= 112) {
+            PARSE(buf, *pos, unsigned char, header->gamemode);
+        } else {
+            header->gamemode = 0;
+        }
+
+        if (wld->ver >= 208 && buf[*pos] != 0x0)
+            header->gamemode = 2;
+    }
 
     if (wld->ver >= 141)
         PARSE(buf, *pos, long, header->creation_time);
@@ -160,9 +182,10 @@ unsigned int wld_header_parse(wld_t *wld) {
     if (wld->ver >= 63)
         PARSE(buf, *pos, unsigned char, header->moon_type);
 
-    if (wld->ver >= 44)
+    if (wld->ver >= 44) {
         PARSE_ARRAY(buf, *pos, int, header->tree_x, 3);
-    PARSE_ARRAY(buf, *pos, int, header->tree_styles, 4);
+        PARSE_ARRAY(buf, *pos, int, header->tree_styles, 4);
+    }
 
     if (wld->ver >= 60) {
         PARSE_ARRAY(buf, *pos, int, header->cave_back_x, 3);
@@ -244,6 +267,9 @@ unsigned int wld_header_parse(wld_t *wld) {
         PARSE(buf, *pos, int, header->altar_count);
         PARSE(buf, *pos, unsigned char, header->hardmode);
     }
+
+    if (wld->ver >= 257)
+        PARSE(buf, *pos, unsigned char, header->after_doom_party);
 
     PARSE(buf, *pos, int, header->invasion_delay);
     PARSE(buf, *pos, int, header->invasion_size);
@@ -386,13 +412,13 @@ unsigned int wld_header_parse(wld_t *wld) {
         PARSE(buf, *pos, unsigned char, header->kill_dd2_3);
     }
 
-    if (wld->ver >= 195)
+    if (wld->ver >= 194)
         PARSE(buf, *pos, unsigned char, header->style_8);
 
     if (wld->ver >= 215)
         PARSE(buf, *pos, unsigned char, header->style_9);
 
-    if (wld->ver >= 196) {
+    if (wld->ver >= 195) {
         PARSE(buf, *pos, unsigned char, header->style_10);
         PARSE(buf, *pos, unsigned char, header->style_11);
         PARSE(buf, *pos, unsigned char, header->style_12);
@@ -442,6 +468,45 @@ unsigned int wld_header_parse(wld_t *wld) {
         PARSE(buf, *pos, unsigned char, header->kill_eol);
         PARSE(buf, *pos, unsigned char, header->kill_queen_slime);
     }
+
+    if (wld->ver >= 240)
+        PARSE(buf, *pos, unsigned char, header->kill_deer);
+
+    if (wld->ver >= 250)
+        PARSE(buf, *pos, unsigned char, header->blue_slime);
+
+    if (wld->ver >= 251) {
+        PARSE(buf, *pos, unsigned char, header->unlocked_merchant);
+        PARSE(buf, *pos, unsigned char, header->unlocked_demo);
+        PARSE(buf, *pos, unsigned char, header->unlocked_party);
+        PARSE(buf, *pos, unsigned char, header->unlocked_dye);
+        PARSE(buf, *pos, unsigned char, header->unlocked_truffle);
+        PARSE(buf, *pos, unsigned char, header->unlocked_arms_dealer);
+        PARSE(buf, *pos, unsigned char, header->unlocked_nurse);
+        PARSE(buf, *pos, unsigned char, header->unlocked_princess);
+    }
+
+    if (wld->ver >= 259)
+        PARSE(buf, *pos, unsigned char, header->combat_book_2);
+
+    if (wld->ver >= 260)
+        PARSE(buf, *pos, unsigned char, header->peddler_satchel);
+
+    if (wld->ver >= 261) {
+        PARSE(buf, *pos, unsigned char, header->green_slime);
+        PARSE(buf, *pos, unsigned char, header->old_slime);
+        PARSE(buf, *pos, unsigned char, header->purple_slime);
+        PARSE(buf, *pos, unsigned char, header->rainbow_slime);
+        PARSE(buf, *pos, unsigned char, header->red_slime);
+        PARSE(buf, *pos, unsigned char, header->yellow_slime);
+        PARSE(buf, *pos, unsigned char, header->copper_slime);
+    }
+
+    if (wld->ver >= 264) {
+        PARSE(buf, *pos, unsigned char, header->moondial_active);
+        PARSE(buf, *pos, unsigned char, header->moondial_cooldown);
+    }
+
 #if DEBUG
     wld_header_dump(spWld->header);
 #endif /* DEBUG  */
@@ -507,8 +572,6 @@ void wld_header_dump(wld_header_t header) {
     printf("    Game Mode:              %d\n", header.gamemode);
     printf("    Drunk:                  %d\n", header.drunk);
     printf("    FTW:                    %d\n", header.ftw);
-    printf("    Expert:                 %d\n", header.expert);
-    printf("    Master:                 %d\n", header.master);
     printf("    Creation:               %ld\n", header.creation_time);
     printf("    Moon Type:              %d\n", header.moon_type);
     printf("    Tree X:                 %d, %d, %d\n", header.tree_x[0], header.tree_x[1], header.tree_x[2]);
