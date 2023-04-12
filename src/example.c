@@ -28,17 +28,9 @@ int main(void) {
     int y;
     for (x = 0; x < wld->header.width; ++x) {
         for (y = 0; y < wld->header.height; ++y) {
-            if (wld->tiles[x][y].tile == 0)
-                wld->tiles[x][y].tile = 54;
-            if (wld->tiles[x][y].tile == 2) {
-                wld->tiles[x][y].tile = -1;
-                wld->tiles[x][y].liquid_type   = LIQUID_LAVA;
-                wld->tiles[x][y].liquid_amount = 255;
-            }
-            if (wld->tiles[x][y].liquid_type == LIQUID_WATER)
-                wld->tiles[x][y].liquid_type = LIQUID_LAVA;
         }
     }
+
 
     wld_write(wld, "world_modified.wld");
 

@@ -69,6 +69,8 @@ unsigned int wld_write(wld_t *wld, const char *path) {
 
     unsigned int temp;
 
+    int headerLen = 0;
+    char *header = wld_header_get_header(wld, &headerLen);
     int tileLen = 0;
     char        *tiles   = tile_get_buffer(wld, &tileLen);
     long         diff    = wld->info.sections[2] - wld->info.sections[1] - tileLen;
@@ -79,7 +81,7 @@ unsigned int wld_write(wld_t *wld, const char *path) {
     }
 
     fwrite(wld_info_get_header(wld, &temp), wld->info.sections[0], 1, pFile);
-    fwrite(wld->file->buf + wld->info.sections[0], wld->info.sections[1] - wld->info.sections[0], 1, pFile);
+    fwrite(header, headerLen, 1, pFile);
 
     if (tileLen != wld->info.sections[2] - wld->info.sections[1]) {
         LOGF_ERR("Tile length mismatch, This might fuck things up.\n");
