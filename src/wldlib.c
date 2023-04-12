@@ -67,12 +67,29 @@ unsigned int wld_write(wld_t *wld, const char *path) {
         return 0;
     }
 
-    fwrite(wld->file->buf, wld->info.sections[1], 1, pFile);
+    unsigned int temp;
 
-    unsigned int tileLen = 0;
+    int tileLen = 0;
     char        *tiles   = tile_get_buffer(wld, &tileLen);
+    long         diff    = wld->info.sections[2] - wld->info.sections[1] - tileLen;
+
+    unsigned long i;
+    for (i = 2; i < wld->info.numsections; i++) {
+        wld->info.sections[i] -= diff;
+    }
+
+    fwrite(wld_info_get_header(wld, &temp), wld->info.sections[0], 1, pFile);
+    fwrite(wld->file->buf + wld->info.sections[0], wld->info.sections[1] - wld->info.sections[0], 1, pFile);
+
+    if (tileLen != wld->info.sections[2] - wld->info.sections[1]) {
+        LOGF_ERR("Tile length mismatch, This might fuck things up.\n");
+        VLOGF_NOTE("Tile length: %u, expected: %u, diff: %d\n", tileLen, wld->info.sections[2] - wld->info.sections[1],
+                                                                wld->info.sections[2] - wld->info.sections[1] - tileLen);
+        return 0;
+    }
+
     fwrite(tiles, tileLen, 1, pFile);
-    fwrite(wld->file->buf + wld->info.sections[1] + tileLen, wld->file->len - tileLen - wld->info.sections[1], 1, pFile);
+    fwrite(wld->file->buf + wld->info.sections[1] + tileLen + diff, wld->file->len - tileLen - diff - wld->info.sections[1], 1, pFile);
     free(tiles);
 
     fclose(pFile);

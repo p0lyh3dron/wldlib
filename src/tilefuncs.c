@@ -113,15 +113,16 @@ void get_tiles(wld_t *wld) {
         }
 
         for (y = 0; y < wld->header.height;) {
-            tile_t t;
+            tile_t t = {0};
             t.tile = -1;
             t.wall = -1;
 
-            unsigned char activeFlags   = 0;
-            unsigned char tileFlagsLow  = 0;
-            unsigned char tileFlagsHigh = 0;
-            short         tempWall      = 0;
-            short         copies        = 0;
+            unsigned char activeFlags     = 0;
+            unsigned char tileFlagsLow    = 0;
+            unsigned char tileFlagsHigh   = 0;
+            unsigned char additionalFlags = 0;
+            short         tempWall        = 0;
+            short         copies          = 0;
 
             /* Read the first byte.  */
             PARSE(wld->file->buf, wld->file->pos, unsigned char, activeFlags);
@@ -133,6 +134,11 @@ void get_tiles(wld_t *wld) {
                 /* If the second byte's first bit is set, read the next byte.  */
                 if (tileFlagsLow & 1 << 0) {
                     PARSE(wld->file->buf, wld->file->pos, unsigned char, tileFlagsHigh);
+
+                    /* If the third byte's first bit is set, read the next byte.  */
+                    if (tileFlagsHigh & 1 << 0) {
+                        PARSE(wld->file->buf, wld->file->pos, unsigned char, additionalFlags);
+                    }
                 }
             }
 
@@ -169,7 +175,11 @@ void get_tiles(wld_t *wld) {
 
             /* Bits 3-4: Liquid is present, next byte is the liquid amount.  */
             if (activeFlags & (1 << 3 | 1 << 4)) {
-                t.liquid_type = (activeFlags & (1 << 3 | 1 << 4)) >> 3;
+                if (tileFlagsHigh & 1 << 8) 
+                    t.liquid_type = LIQUID_SHIMMER;
+                else
+                    t.liquid_type = (activeFlags & (1 << 3 | 1 << 4)) >> 3;
+
                 PARSE(wld->file->buf, wld->file->pos, unsigned char, t.liquid_amount);
             }
 
@@ -314,6 +324,9 @@ char *tile_get_buffer(wld_t *wld, unsigned int *size) {
             if (t->liquid_amount) {
                 activeFlags |= t->liquid_type << 3;
                 writeFlags |= TILE_WRITE_LIQUID_AMT;
+
+                if (t->liquid_type == LIQUID_SHIMMER)
+                    tileFlagsHigh |= 1 << 8;
             }
 
             if (t->wiring & WIRE_RED)

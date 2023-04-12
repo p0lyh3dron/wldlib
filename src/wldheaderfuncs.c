@@ -522,12 +522,20 @@ unsigned int wld_header_parse(wld_t *wld) {
  *    @return char *           The world info header.
  */
 char *wld_info_get_header(wld_t *wld, unsigned int *len) {
-    static char buf[WLD_INFO_HEADER_LEN];
+    static char   buf[WLD_INFO_HEADER_LEN];
+    unsigned long pos = 0;
 
-    memcpy(buf, &wld->info, WLD_INFO_HEADER_LEN);
-    memcpy(buf + sizeof(wld_info_header_t) - sizeof(wld->info.tilemask), wld->info.uvs, wld->info.tilemask / 8);
+    WRITE(buf, pos, int, wld->info.ver);
+    WRITE_ARRAY(buf, pos, char, wld->info.sig, 7);
+    WRITE(buf, pos, char, wld->info.world_type);
+    WRITE(buf, pos, int, wld->info.revisions);
+    WRITE(buf, pos, long, wld->info.favorite);
+    WRITE(buf, pos, short, wld->info.numsections);
+    WRITE_ARRAY(buf, pos, int, wld->info.sections, wld->info.numsections);
+    WRITE(buf, pos, short, wld->info.tilemask);
+    WRITE_ARRAY(buf, pos, char, wld->info.uvs, wld->info.tilemask / 8);
 
-    *len = sizeof(wld_info_header_t) - sizeof(wld->info.tilemask) + wld->info.tilemask / 8;
+    *len = pos;
 
     return buf;
 }

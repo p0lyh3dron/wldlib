@@ -16,9 +16,10 @@ enum {
 };
 
 enum {
-    LIQUID_WATER = 1,
-    LIQUID_LAVA  = 2,
-    LIQUID_HONEY = 3,
+    LIQUID_WATER   = 1,
+    LIQUID_LAVA    = 2,
+    LIQUID_HONEY   = 3,
+    LIQUID_SHIMMER = 4,
 };
 
 enum {

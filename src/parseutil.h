@@ -18,6 +18,16 @@
         pos += sizeof(type);                   \
     }
 
+#define WRITE(buf, pos, type, var) \
+    *(type *)(buf + pos) = var;    \
+    pos += sizeof(type)
+
+#define WRITE_ARRAY(buf, pos, type, var, size) \
+    for (int i = 0; i < size; i++) {           \
+        *(type *)(buf + pos) = var[i];         \
+        pos += sizeof(type);                   \
+    }
+
 #include "filestream.h"
 #include "wld.h"
 
