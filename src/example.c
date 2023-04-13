@@ -9,6 +9,7 @@
 #include "wldlib.h"
 
 #include <stdio.h>
+#include <math.h>
 
 /*
  *    Entry.
@@ -27,7 +28,10 @@ int main(void) {
     int x;
     int y;
     for (x = 0; x < wld->header.width; ++x) {
-        for (y = 0; y < wld->header.height; ++y) {
+        for (y = 0; y < wld->header.height; ++y) { 
+            if (fabs(200*tan(pow(x-2100,2)/200000.)+600 - y) < 100) {
+                wld->tiles[x][y].tile = 327;
+            }
         }
     }
 

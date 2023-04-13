@@ -17,6 +17,490 @@
 #include <stdio.h>
 
 /*
+ *    Loads the chests from a world.
+ *
+ *    @param wld_t *wld    The world to load the chests from.
+ * 
+ *    @return unsigned int          1 on success, 0 on failure.
+ */
+unsigned int get_chests(wld_t *wld) {
+    char          *buf = wld->file->buf;
+    unsigned long  pos = wld->info.sections[2];
+
+    short chest_count = 0;
+    short item_count  = 0;
+    PARSE(buf, pos, short, chest_count);
+    PARSE(buf, pos, short, item_count);
+
+    wld->chests = (chest_t *)malloc(sizeof(chest_t) * chest_count);
+    if (wld->chests == (chest_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for chests.\n");
+        return 0;
+    }
+
+    short i;
+    for (i = 0; i < chest_count; ++i) {
+        chest_t *chest = &wld->chests[i];
+
+        chest->items = (item_t *)malloc(sizeof(item_t) * item_count);
+
+        if (chest->items == (item_t *)0x0) {
+            LOGF_ERR("Failed to allocate memory for chest items.\n");
+            return 0;
+        }
+
+        PARSE(buf, pos, int, chest->x);
+        PARSE(buf, pos, int, chest->y);
+        chest->name = parse_string(buf, &pos);
+        
+        short j;
+        for (j = 0; j < item_count && j < 40; ++j) {
+            short stack = 0;
+            PARSE(buf, pos, short, stack);
+
+            if (stack == 0) {
+                chest->items[j].stack = 0;
+                chest->items[j].id    = 0;
+                chest->items[j].prefix = 0;
+                continue;
+            }
+
+            chest->items[j].stack = stack;
+            PARSE(buf, pos, int, chest->items[j].id);
+            PARSE(buf, pos, unsigned char, chest->items[j].prefix);
+        }
+
+        for (j = 0; j < item_count - 40; ++j) {
+            pos += 7;
+        }
+    }
+
+    wld->chest_count = chest_count;
+}
+
+/*
+ *    Writes the chest data to a buffer.
+ *
+ *    @param wld_t         *wld    The world to write the chest data from.
+ *    @param unsigned long *size    The length of the buffer.
+ * 
+ *    @return char *    The buffer containing the chest data.
+ */
+char *write_chests(wld_t *wld, unsigned long *size) {
+    char buf[0x10000];
+    unsigned long pos = 0;
+
+    short chest_count = wld->chest_count;
+    short item_count  = 40;
+    WRITE(buf, pos, short, chest_count);
+    WRITE(buf, pos, short, item_count);
+
+    short i;
+    for (i = 0; i < chest_count; ++i) {
+        chest_t *chest = &wld->chests[i];
+
+        WRITE(buf, pos, int, chest->x);
+        WRITE(buf, pos, int, chest->y);
+        WRITE_ARRAY(buf, pos, char, chest->name, strlen(chest->name));
+
+        short j;
+        for (j = 0; j < item_count; ++j) {
+            item_t *item = &chest->items[j];
+
+            if (item->stack == 0) {
+                WRITE(buf, pos, short, 0);
+                continue;
+            }
+
+            WRITE(buf, pos, short, item->stack);
+            WRITE(buf, pos, int, item->id);
+            WRITE(buf, pos, unsigned char, item->prefix);
+        }
+    }
+
+    *size = pos;
+
+    return buf;
+}
+
+/*
+ *    Gets the signs from a world.
+ *
+ *    @param wld_t *wld    The world to get the signs from.
+ * 
+ *    @return unsigned int          1 on success, 0 on failure.
+ */
+unsigned int get_signs(wld_t *wld) {
+    char          *buf = wld->file->buf;
+    unsigned long  pos = wld->info.sections[3];
+
+    short sign_count = 0;
+    PARSE(buf, pos, short, sign_count);
+
+    wld->signs = (sign_t *)malloc(sizeof(sign_t) * sign_count);
+    if (wld->signs == (sign_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for signs.\n");
+        return 0;
+    }
+
+    short i;
+    for (i = 0; i < sign_count; ++i) {
+        sign_t *sign = &wld->signs[i];
+
+        sign->text = parse_string(buf, &pos);
+        PARSE(buf, pos, int, sign->x);
+        PARSE(buf, pos, int, sign->y);
+    }
+
+    wld->sign_count = sign_count;
+}
+
+/*
+ *    Writes the sign data to a buffer.
+ *
+ *    @param wld_t         *wld     The world to write the sign data from.
+ *    @param unsigned long *size    The length of the buffer.
+ * 
+ *    @return char *    The buffer containing the sign data.
+ */
+char *write_signs(wld_t *wld, unsigned long *size) {
+    char buf[0x10000];
+    unsigned long pos = 0;
+
+    short sign_count = wld->sign_count;
+    WRITE(buf, pos, short, sign_count);
+
+    short i;
+    for (i = 0; i < sign_count; ++i) {
+        sign_t *sign = &wld->signs[i];
+
+        WRITE_ARRAY(buf, pos, char, sign->text, strlen(sign->text));
+        WRITE(buf, pos, int, sign->x);
+        WRITE(buf, pos, int, sign->y);
+    }
+
+    *size = pos;
+
+    return buf;
+}
+
+/*
+ *    Gets the NPCs from a world.
+ *
+ *    @param wld_t *wld    The world to get the NPCs from.
+ * 
+ *    @return unsigned int          1 on success, 0 on failure.
+ */
+unsigned int get_npcs(wld_t *wld) {
+    char          *buf = wld->file->buf;
+    unsigned long  pos = wld->info.sections[4];
+
+    if (wld->ver >= 268) {
+        int shimmer_count;
+        int shimmer;
+        PARSE(buf, pos, int, shimmer_count);
+
+        int i;
+        for (i = 0; i < shimmer_count; ++i) {
+            PARSE(buf, pos, int, shimmer);
+        }
+    }
+
+    wld->npcs = (npc_t *)malloc(sizeof(npc_t) * 256);
+
+    if (wld->npcs == (npc_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for NPCs.\n");
+        return 0;
+    }
+
+    short npc_count = 0;
+    unsigned char cont;
+    PARSE(buf, pos, unsigned char, cont);
+
+    /* Read NPCs.  */
+    while (cont) {
+        if (wld->ver >= 190) {
+            PARSE(buf, pos, int, wld->npcs[npc_count].id);
+        } else {
+            LOGF_ERR("Unsupported version.\n");
+            return 0;
+        }
+
+        wld->npcs[npc_count].name = parse_string(buf, &pos);
+        PARSE(buf, pos, float, wld->npcs[npc_count].x);
+        PARSE(buf, pos, float, wld->npcs[npc_count].y);
+        PARSE(buf, pos, unsigned char, wld->npcs[npc_count].homeless);
+        PARSE(buf, pos, int, wld->npcs[npc_count].home_x);
+        PARSE(buf, pos, int, wld->npcs[npc_count].home_y);
+
+        unsigned char variant;
+        PARSE(buf, pos, unsigned char, variant);
+
+        if (wld->ver >= 213 && (variant & (1 << 0))) {
+            PARSE(buf, pos, int, wld->npcs[npc_count].variation);
+        }
+
+        ++npc_count;
+        PARSE(buf, pos, unsigned char, cont);
+    }
+
+    if (wld->ver < 140)
+        return 1;
+
+    PARSE(buf, pos, unsigned char, cont);
+
+    /* Read pets?  */
+    while (cont) {
+        if (wld->ver >= 190) {
+            PARSE(buf, pos, int, wld->npcs[npc_count].id);
+        } else {
+            LOGF_ERR("Unsupported version.\n");
+            return 0;
+        }
+
+        PARSE(buf, pos, float, wld->npcs[npc_count].x);
+        PARSE(buf, pos, float, wld->npcs[npc_count].y);
+
+        ++npc_count;
+        PARSE(buf, pos, unsigned char, cont);
+    }
+}
+
+/*
+ *    Writes the NPC data to a buffer.
+ *
+ *    @param wld_t         *wld     The world to write the NPC data from.
+ *    @param unsigned long *size    The length of the buffer.
+ * 
+ *    @return char *    The buffer containing the NPC data.
+ */
+char *write_npcs(wld_t *wld, unsigned long *size) {
+    char buf[0x10000];
+    unsigned long pos = 0;
+
+    WRITE(buf, pos, int, 0);
+
+    short npc_count = 0;
+    unsigned char cont = 1;
+    WRITE(buf, pos, unsigned char, cont);
+
+    /* Write NPCs.  */
+    while (npc_count < wld->npc_count) {
+        WRITE(buf, pos, int, wld->npcs[npc_count].id);
+        WRITE_ARRAY(buf, pos, char, wld->npcs[npc_count].name, strlen(wld->npcs[npc_count].name));
+        WRITE(buf, pos, float, wld->npcs[npc_count].x);
+        WRITE(buf, pos, float, wld->npcs[npc_count].y);
+        WRITE(buf, pos, unsigned char, wld->npcs[npc_count].homeless);
+        WRITE(buf, pos, int, wld->npcs[npc_count].home_x);
+        WRITE(buf, pos, int, wld->npcs[npc_count].home_y);
+
+        unsigned char variant = 0;
+        WRITE(buf, pos, unsigned char, variant);
+
+        ++npc_count;
+        WRITE(buf, pos, unsigned char, cont);
+    }
+
+    /*
+     *    PICK UP TOMORROW, ADD VARIABLE TO DIFFERENTIATE NPC COUNT AND PET COUNT
+     */
+
+    cont = 0;
+    WRITE(buf, pos, unsigned char, cont);
+
+    /* Write pets?  */
+    while (cont) {
+        if (wld->ver >= 190) {
+            WRITE(buf, pos, int, wld->npcs[npc_count].id);
+        } else {
+            LOGF_ERR("Unsupported version.\n");
+            return 0;
+        }
+
+        WRITE(buf, pos, float, wld->npcs[npc_count].x);
+        WRITE(buf, pos, float, wld->npcs[npc_count].y);
+
+        ++npc_count;
+        WRITE(buf, pos, unsigned char, cont);
+    }
+
+    *size = pos;
+
+    return buf;
+}
+
+/*
+ *    Gets the tile entities from a world.
+ *
+ *    @param wld_t *wld    The world to get the tile entities from.
+ * 
+ *    @return unsigned int          1 on success, 0 on failure.
+ */
+unsigned int get_tile_entities(wld_t *wld) {
+    char          *buf = wld->file->buf;
+    unsigned long  pos = wld->info.sections[5];
+
+    int tile_entity_count = 0;
+    PARSE(buf, pos, int, tile_entity_count);
+
+    wld->tile_entities = (tile_entity_t *)malloc(sizeof(tile_entity_t) * tile_entity_count);
+    if (wld->tile_entities == (tile_entity_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for tile entities.\n");
+        return 0;
+    }
+
+    int i;
+    for (i = 0; i < tile_entity_count; ++i) {
+        tile_entity_t *tile_entity = &wld->tile_entities[i];
+
+        PARSE(buf, pos, unsigned char, tile_entity->id);
+        PARSE(buf, pos, int, tile_entity->inner);
+        PARSE(buf, pos, short, tile_entity->x);
+        PARSE(buf, pos, short, tile_entity->y);
+    }
+
+    wld->tile_entity_count = tile_entity_count;
+
+    return 1;
+}
+
+/*
+ *    Gets the pressure plates from a world.
+ *
+ *    @param wld_t *wld    The world to get the pressure plates from.
+ * 
+ *    @return unsigned int          1 on success, 0 on failure.
+ */
+unsigned int get_pressure_plates(wld_t *wld) {
+    char          *buf = wld->file->buf;
+    unsigned long  pos = wld->info.sections[6];
+
+    int pressure_plate_count = 0;
+    PARSE(buf, pos, int, pressure_plate_count);
+
+    wld->pressure_plates = (pressure_plate_t *)malloc(sizeof(pressure_plate_t) * pressure_plate_count);
+    if (wld->pressure_plates == (pressure_plate_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for pressure plates.\n");
+        return 0;
+    }
+
+    int i;
+    for (i = 0; i < pressure_plate_count; ++i) {
+        pressure_plate_t *pressure_plate = &wld->pressure_plates[i];
+
+        PARSE(buf, pos, short, pressure_plate->x);
+        PARSE(buf, pos, short, pressure_plate->y);
+    }
+
+    wld->pressure_plate_count = pressure_plate_count;
+
+    return 1;
+}
+
+/*
+ *    Gets the town elements from a world.
+ *
+ *    @param wld_t *wld    The world to get the town elements from.
+ * 
+ *    @return unsigned int          1 on success, 0 on failure.
+ */
+unsigned int get_town_elements(wld_t *wld) {
+    char          *buf = wld->file->buf;
+    unsigned long  pos = wld->info.sections[7];
+
+    int town_element_count = 0;
+    PARSE(buf, pos, int, town_element_count);
+
+    wld->town_elements = (town_element_t *)malloc(sizeof(town_element_t) * town_element_count);
+    if (wld->town_elements == (town_element_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for town elements.\n");
+        return 0;
+    }
+
+    int i;
+    for (i = 0; i < town_element_count; ++i) {
+        town_element_t *town_element = &wld->town_elements[i];
+
+        PARSE(buf, pos, int, town_element->id);
+        PARSE(buf, pos, int, town_element->x);
+        PARSE(buf, pos, int, town_element->y);
+    }
+
+    wld->town_element_count = town_element_count;
+
+    return 1;
+}
+
+/*
+ *    Gets the bestiary from a world.
+ *
+ *    @param wld_t *wld    The world to get the bestiary from.
+ * 
+ *    @return unsigned int          1 on success, 0 on failure.
+ */
+unsigned int get_bestiary(wld_t *wld) {
+    char          *buf = wld->file->buf;
+    unsigned long  pos = wld->info.sections[8];
+
+    int kill_count = 0;
+    PARSE(buf, pos, int, kill_count);
+
+    wld->kills = (kill_t *)malloc(sizeof(kill_t) * kill_count);
+    
+    if (wld->kills == (kill_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for bestiary.\n");
+        return 0;
+    }
+
+    int i;
+    for (i = 0; i < kill_count; ++i) {
+        kill_t *kill = &wld->kills[i];
+
+        kill->name = parse_string(buf, &pos);
+        PARSE(buf, pos, int, kill->val);
+    }
+
+    wld->kill_count = kill_count;
+
+    int tracker_count = 0;
+    PARSE(buf, pos, int, tracker_count);
+
+    wld->trackers = (tracker_t *)malloc(sizeof(tracker_t) * tracker_count);
+    if (wld->trackers == (tracker_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for bestiary.\n");
+        return 0;
+    }
+
+    for (i = 0; i < tracker_count; ++i) {
+        tracker_t *tracker = &wld->trackers[i];
+
+        tracker->item = parse_string(buf, &pos);
+    }
+
+    wld->tracker_count = tracker_count;
+
+    int chatter_count = 0;
+    PARSE(buf, pos, int, chatter_count);
+
+    wld->chatters = (chatted_t *)malloc(sizeof(chatted_t) * chatter_count);
+
+    if (wld->chatters == (chatted_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for bestiary.\n");
+        return 0;
+    }
+
+    for (i = 0; i < chatter_count; ++i) {
+        chatted_t *chatter = &wld->chatters[i];
+
+        chatter->item = parse_string(buf, &pos);
+    }
+
+    wld->chatter_count = chatter_count;
+
+    return 1;
+}
+
+/*
  *    Loads a terraria world.
  *
  *    @param char *path    The file to load.
@@ -46,6 +530,31 @@ wld_t *wld_open(const char *path) {
     }
 
     get_tiles(wld);
+    get_chests(wld);
+    get_signs(wld);
+    get_npcs(wld);
+
+    if (wld->ver >= 116) {
+        if (wld->ver < 122) {
+           VLOGF_ERR("World version %d is not supported.\n", wld->ver);
+        }
+        get_tile_entities(wld);
+    }
+
+    if (wld->ver >= 170) {
+        get_pressure_plates(wld);
+    }
+
+    if (wld->ver >= 189) {
+        get_town_elements(wld);
+    }
+
+    if (wld->ver >= 210) {
+        get_bestiary(wld);
+    }
+    
+    wld->creative_powers_len = 31;
+    wld->creative_powers = "\001\000\000\000\001\b\000\000\000\000\000\001\t\000\000\001\n\000\000\001\f\000\000\000\000\000\001\r\000\000\000";
     dump_tiles_png(wld, "tiles.png");
 
     return wld;
@@ -112,6 +621,15 @@ void wld_free(wld_t *wld) {
 
     if (wld->file != (filestream_t *)0x0)
         filestream_free(wld->file);
+
+    free(wld->signs);
+
+    short i;
+    for (i = 0; i < wld->chest_count; ++i) {
+        free(wld->chests[i].items);
+    }
+
+    free(wld->chests);
 
     free_tiles(wld);
     wld_header_free(wld->header);
