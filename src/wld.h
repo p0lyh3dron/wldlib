@@ -26,6 +26,7 @@ typedef struct {
     short             sign_count;
     sign_t           *signs;
     unsigned long     npc_count;
+    unsigned long     pet_count;
     unsigned long     other_count;
     npc_t            *npcs;
     int               tile_entity_count;

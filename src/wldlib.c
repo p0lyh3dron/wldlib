@@ -87,8 +87,13 @@ unsigned int get_chests(wld_t *wld) {
  *    @return char *    The buffer containing the chest data.
  */
 char *write_chests(wld_t *wld, unsigned long *size) {
-    char buf[0x10000];
+    char *buf = (char *)malloc(0x10000);
     unsigned long pos = 0;
+
+    if (buf == (char *)0x0) {
+        LOGF_ERR("Failed to allocate memory for chest buffer.\n");
+        return (char *)0x0;
+    }
 
     short chest_count = wld->chest_count;
     short item_count  = 40;
@@ -101,7 +106,13 @@ char *write_chests(wld_t *wld, unsigned long *size) {
 
         WRITE(buf, pos, int, chest->x);
         WRITE(buf, pos, int, chest->y);
-        WRITE_ARRAY(buf, pos, char, chest->name, strlen(chest->name));
+        
+        if (chest->name == (char *)0x0) {
+            WRITE(buf, pos, unsigned char, 0);
+        } else {
+            WRITE(buf, pos, unsigned char, strlen(chest->name));
+            WRITE_ARRAY(buf, pos, char, chest->name, strlen(chest->name));
+        }
 
         short j;
         for (j = 0; j < item_count; ++j) {
@@ -164,8 +175,13 @@ unsigned int get_signs(wld_t *wld) {
  *    @return char *    The buffer containing the sign data.
  */
 char *write_signs(wld_t *wld, unsigned long *size) {
-    char buf[0x10000];
+    char *buf = (char *)malloc(0x10000);
     unsigned long pos = 0;
+
+    if (buf == (char *)0x0) {
+        LOGF_ERR("Failed to allocate memory for sign buffer.\n");
+        return (char *)0x0;
+    }
 
     short sign_count = wld->sign_count;
     WRITE(buf, pos, short, sign_count);
@@ -174,6 +190,7 @@ char *write_signs(wld_t *wld, unsigned long *size) {
     for (i = 0; i < sign_count; ++i) {
         sign_t *sign = &wld->signs[i];
 
+        WRITE(buf, pos, unsigned char, strlen(sign->text));
         WRITE_ARRAY(buf, pos, char, sign->text, strlen(sign->text));
         WRITE(buf, pos, int, sign->x);
         WRITE(buf, pos, int, sign->y);
@@ -247,23 +264,28 @@ unsigned int get_npcs(wld_t *wld) {
     if (wld->ver < 140)
         return 1;
 
+    unsigned long pet_count = npc_count;
+
     PARSE(buf, pos, unsigned char, cont);
 
     /* Read pets?  */
     while (cont) {
         if (wld->ver >= 190) {
-            PARSE(buf, pos, int, wld->npcs[npc_count].id);
+            PARSE(buf, pos, int, wld->npcs[pet_count].id);
         } else {
             LOGF_ERR("Unsupported version.\n");
             return 0;
         }
 
-        PARSE(buf, pos, float, wld->npcs[npc_count].x);
-        PARSE(buf, pos, float, wld->npcs[npc_count].y);
+        PARSE(buf, pos, float, wld->npcs[pet_count].x);
+        PARSE(buf, pos, float, wld->npcs[pet_count].y);
 
-        ++npc_count;
+        ++pet_count;
         PARSE(buf, pos, unsigned char, cont);
     }
+
+    wld->npc_count = npc_count;
+    wld->pet_count = pet_count;
 }
 
 /*
@@ -275,18 +297,24 @@ unsigned int get_npcs(wld_t *wld) {
  *    @return char *    The buffer containing the NPC data.
  */
 char *write_npcs(wld_t *wld, unsigned long *size) {
-    char buf[0x10000];
+    char *buf = (char *)malloc(0x10000);
     unsigned long pos = 0;
+
+    if (buf == (char *)0x0) {
+        LOGF_ERR("Failed to allocate memory for NPC buffer.\n");
+        return (char *)0x0;
+    }
 
     WRITE(buf, pos, int, 0);
 
     short npc_count = 0;
-    unsigned char cont = 1;
+    unsigned char cont = wld->npc_count > 0;
     WRITE(buf, pos, unsigned char, cont);
 
     /* Write NPCs.  */
     while (npc_count < wld->npc_count) {
         WRITE(buf, pos, int, wld->npcs[npc_count].id);
+        WRITE(buf, pos, unsigned char, strlen(wld->npcs[npc_count].name));
         WRITE_ARRAY(buf, pos, char, wld->npcs[npc_count].name, strlen(wld->npcs[npc_count].name));
         WRITE(buf, pos, float, wld->npcs[npc_count].x);
         WRITE(buf, pos, float, wld->npcs[npc_count].y);
@@ -294,18 +322,16 @@ char *write_npcs(wld_t *wld, unsigned long *size) {
         WRITE(buf, pos, int, wld->npcs[npc_count].home_x);
         WRITE(buf, pos, int, wld->npcs[npc_count].home_y);
 
-        unsigned char variant = 0;
+        unsigned char variant = 1;
         WRITE(buf, pos, unsigned char, variant);
+        WRITE(buf, pos, int, wld->npcs[npc_count].variation);
 
         ++npc_count;
+        cont = npc_count < wld->npc_count;
         WRITE(buf, pos, unsigned char, cont);
     }
 
-    /*
-     *    PICK UP TOMORROW, ADD VARIABLE TO DIFFERENTIATE NPC COUNT AND PET COUNT
-     */
-
-    cont = 0;
+    cont = wld->pet_count > wld->npc_count;
     WRITE(buf, pos, unsigned char, cont);
 
     /* Write pets?  */
@@ -365,6 +391,40 @@ unsigned int get_tile_entities(wld_t *wld) {
 }
 
 /*
+ *    Writes the tile entity data to a buffer.
+ *
+ *    @param wld_t         *wld     The world to write the tile entity data from.
+ *    @param unsigned long *size    The length of the buffer.
+ * 
+ *    @return char *    The buffer containing the tile entity data.
+ */
+char *write_tile_entities(wld_t *wld, unsigned long *size) {
+    char *buf = (char *)malloc(0x10000);
+    unsigned long pos = 0;
+
+    if (buf == (char *)0x0) {
+        LOGF_ERR("Failed to allocate memory for tile entity buffer.\n");
+        return (char *)0x0;
+    }
+
+    WRITE(buf, pos, int, wld->tile_entity_count);
+
+    int i;
+    for (i = 0; i < wld->tile_entity_count; ++i) {
+        tile_entity_t *tile_entity = &wld->tile_entities[i];
+
+        WRITE(buf, pos, unsigned char, tile_entity->id);
+        WRITE(buf, pos, int, tile_entity->inner);
+        WRITE(buf, pos, short, tile_entity->x);
+        WRITE(buf, pos, short, tile_entity->y);
+    }
+
+    *size = pos;
+
+    return buf;
+}
+
+/*
  *    Gets the pressure plates from a world.
  *
  *    @param wld_t *wld    The world to get the pressure plates from.
@@ -395,6 +455,38 @@ unsigned int get_pressure_plates(wld_t *wld) {
     wld->pressure_plate_count = pressure_plate_count;
 
     return 1;
+}
+
+/*
+ *    Writes the pressure plate data to a buffer.
+ *
+ *    @param wld_t         *wld     The world to write the pressure plate data from.
+ *    @param unsigned long *size    The length of the buffer.
+ * 
+ *    @return char *    The buffer containing the pressure plate data.
+ */
+char *write_pressure_plates(wld_t *wld, unsigned long *size) {
+    char *buf = (char *)malloc(0x10000);
+    unsigned long pos = 0;
+
+    if (buf == (char *)0x0) {
+        LOGF_ERR("Failed to allocate memory for pressure plate buffer.\n");
+        return (char *)0x0;
+    }
+
+    WRITE(buf, pos, int, wld->pressure_plate_count);
+
+    int i;
+    for (i = 0; i < wld->pressure_plate_count; ++i) {
+        pressure_plate_t *pressure_plate = &wld->pressure_plates[i];
+
+        WRITE(buf, pos, short, pressure_plate->x);
+        WRITE(buf, pos, short, pressure_plate->y);
+    }
+
+    *size = pos;
+
+    return buf;
 }
 
 /*
@@ -429,6 +521,39 @@ unsigned int get_town_elements(wld_t *wld) {
     wld->town_element_count = town_element_count;
 
     return 1;
+}
+
+/*
+ *    Writes the town element data to a buffer.
+ *
+ *    @param wld_t         *wld     The world to write the town element data from.
+ *    @param unsigned long *size    The length of the buffer.
+ * 
+ *    @return char *    The buffer containing the town element data.
+ */
+char *write_town_elements(wld_t *wld, unsigned long *size) {
+    char *buf = (char *)malloc(0x10000);
+    unsigned long pos = 0;
+
+    if (buf == (char *)0x0) {
+        LOGF_ERR("Failed to allocate memory for town element buffer.\n");
+        return (char *)0x0;
+    }
+
+    WRITE(buf, pos, int, wld->town_element_count);
+
+    int i;
+    for (i = 0; i < wld->town_element_count; ++i) {
+        town_element_t *town_element = &wld->town_elements[i];
+
+        WRITE(buf, pos, int, town_element->id);
+        WRITE(buf, pos, int, town_element->x);
+        WRITE(buf, pos, int, town_element->y);
+    }
+
+    *size = pos;
+
+    return buf;
 }
 
 /*
@@ -498,6 +623,57 @@ unsigned int get_bestiary(wld_t *wld) {
     wld->chatter_count = chatter_count;
 
     return 1;
+}
+
+/*
+ *    Writes the bestiary data to a buffer.
+ *
+ *    @param wld_t         *wld     The world to write the bestiary data from.
+ *    @param unsigned long *size    The length of the buffer.
+ * 
+ *    @return char *    The buffer containing the bestiary data.
+ */
+char *write_bestiary(wld_t *wld, unsigned long *size) {
+    char *buf = (char *)malloc(0x10000);
+    unsigned long pos = 0;
+
+    if (buf == (char *)0x0) {
+        LOGF_ERR("Failed to allocate memory for bestiary buffer.\n");
+        return (char *)0x0;
+    }
+
+    WRITE(buf, pos, int, wld->kill_count);
+
+    int i;
+    for (i = 0; i < wld->kill_count; ++i) {
+        kill_t *kill = &wld->kills[i];
+
+        WRITE(buf, pos, unsigned char, strlen(kill->name));
+        WRITE_ARRAY(buf, pos, char, kill->name, strlen(kill->name));
+        WRITE(buf, pos, int, kill->val);
+    }
+
+    WRITE(buf, pos, int, wld->tracker_count);
+
+    for (i = 0; i < wld->tracker_count; ++i) {
+        tracker_t *tracker = &wld->trackers[i];
+
+        WRITE(buf, pos, unsigned char, strlen(tracker->item));
+        WRITE_ARRAY(buf, pos, char, tracker->item, strlen(tracker->item));
+    }
+
+    WRITE(buf, pos, int, wld->chatter_count);
+
+    for (i = 0; i < wld->chatter_count; ++i) {
+        chatted_t *chatter = &wld->chatters[i];
+
+        WRITE(buf, pos, unsigned char, strlen(chatter->item));
+        WRITE_ARRAY(buf, pos, char, chatter->item, strlen(chatter->item));
+    }
+
+    *size = pos;
+
+    return buf;
 }
 
 /*
@@ -576,32 +752,45 @@ unsigned int wld_write(wld_t *wld, const char *path) {
         return 0;
     }
 
-    unsigned int temp;
+    unsigned long pos = 0;
 
-    int headerLen = 0;
-    char *header = wld_header_get_header(wld, &headerLen);
-    int tileLen = 0;
-    char        *tiles   = tile_get_buffer(wld, &tileLen);
-    long         diff    = wld->info.sections[2] - wld->info.sections[1] - tileLen;
+    char *sections[11];
+    unsigned long section_sizes[11];
+    char  footer[0x1000];
 
-    unsigned long i;
-    for (i = 2; i < wld->info.numsections; i++) {
-        wld->info.sections[i] -= diff;
+    sprintf(footer, "\001%c%s", strlen(wld->header.name), wld->header.name);
+    memcpy(footer + 2 + strlen(wld->header.name), &wld->header.id, sizeof(wld->header.id));
+
+    sections[0] = wld_info_get_header(wld, &section_sizes[0]);
+    sections[1] = wld_header_get_header(wld, &section_sizes[1]);
+    sections[2] = tile_get_buffer(wld, &section_sizes[2]);
+    sections[3] = write_chests(wld, &section_sizes[3]);
+    sections[4] = write_signs(wld, &section_sizes[4]);
+    sections[5] = write_npcs(wld, &section_sizes[5]);
+    sections[6] = write_tile_entities(wld, &section_sizes[6]);
+    sections[7] = write_pressure_plates(wld, &section_sizes[7]);
+    sections[8] = write_town_elements(wld, &section_sizes[8]);
+    sections[9] = write_bestiary(wld, &section_sizes[9]);
+    sections[10] = "\001\000\000\000\001\b\000\000\000\000\000\001\t\000\000\001\n\000\000\001\f\000\000\000\000\000\001\r\000\000\000";
+    section_sizes[10]  = 31;
+    sections[11] = footer;
+    section_sizes[11] = 2 + strlen(wld->header.name) + 4;
+
+    unsigned long total_size = 0;
+
+    int i;
+    for (i = 0; i <= 11; ++i) {
+        total_size += section_sizes[i];
+
+        if (i < 11)
+            printf("Section diff: %d", (int)memcmp(wld->file->buf + wld->info.sections[i], sections[i+1], wld->info.sections[i+1] - wld->info.sections[i]));
+        wld->info.sections[i] = total_size;
     }
 
-    fwrite(wld_info_get_header(wld, &temp), wld->info.sections[0], 1, pFile);
-    fwrite(header, headerLen, 1, pFile);
+    sections[0] = wld_info_get_header(wld, &section_sizes[0]);
 
-    if (tileLen != wld->info.sections[2] - wld->info.sections[1]) {
-        LOGF_ERR("Tile length mismatch, This might fuck things up.\n");
-        VLOGF_NOTE("Tile length: %u, expected: %u, diff: %d\n", tileLen, wld->info.sections[2] - wld->info.sections[1],
-                                                                wld->info.sections[2] - wld->info.sections[1] - tileLen);
-        return 0;
-    }
-
-    fwrite(tiles, tileLen, 1, pFile);
-    fwrite(wld->file->buf + wld->info.sections[1] + tileLen + diff, wld->file->len - tileLen - diff - wld->info.sections[1], 1, pFile);
-    free(tiles);
+    for (i = 0; i <= 11; ++i)
+        fwrite(sections[i], 1, section_sizes[i], pFile);
 
     fclose(pFile);
 

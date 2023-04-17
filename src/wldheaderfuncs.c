@@ -534,6 +534,7 @@ char *wld_info_get_header(wld_t *wld, unsigned int *len) {
     WRITE_ARRAY(buf, pos, int, wld->info.sections, wld->info.numsections);
     WRITE(buf, pos, short, wld->info.tilemask);
     WRITE_ARRAY(buf, pos, char, wld->info.uvs, wld->info.tilemask / 8);
+    WRITE(buf, pos, char, '\000');
 
     *len = pos;
 
