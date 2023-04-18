@@ -12,6 +12,18 @@
 #include "wld.h"
 
 /*
+ *    Creates a new Terraria world.
+ *
+ *    @param int width           The width of the world.
+ *    @param int height          The height of the world.
+ *    @param const char *name    The name of the world.
+ *    @param const char *seed    The seed of the world.
+ * 
+ *    @return wld_t *    The created world, or NULL on failure.
+ */
+wld_t *wld_new(int width, int height, const char *name, const char *seed);
+
+/*
  *    Loads a terraria world.
  *
  *    @param char *path    The file to load.

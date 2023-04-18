@@ -642,7 +642,7 @@ char *wld_header_get_header(wld_t *wld, unsigned int *len) {
     WRITE(buf, pos, float, wld->header.wind_speed);
     WRITE(buf, pos, int, wld->header.players);
 
-    unsigned long i;
+    int i;
     for (i = 0; i < wld->header.players; i++) {
         WRITE(buf, pos, char, (char)strlen(wld->header.playernames[i]));
         WRITE_ARRAY(buf, pos, char, wld->header.playernames[i], strlen(wld->header.playernames[i]));

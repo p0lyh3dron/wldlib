@@ -240,6 +240,10 @@ void get_tiles(wld_t *wld) {
             }
         }
     }
+
+    if (wld->file->pos != wld->info.sections[2]) {
+        VLOGF_WARN("tile section is not the expected length, diff = %d\n", wld->info.sections[2] - wld->file->pos);
+    }
 }
 
 /*

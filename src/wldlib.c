@@ -12,6 +12,8 @@
 #include "parseutil.h"
 #include "tilefuncs.h"
 #include "wldheaderfuncs.h"
+#include "worldgen.h"
+#include "rand.h"
 
 #include <malloc.h>
 #include <stdio.h>
@@ -73,6 +75,11 @@ unsigned int get_chests(wld_t *wld) {
         for (j = 0; j < item_count - 40; ++j) {
             pos += 7;
         }
+    }
+
+    if (pos != wld->info.sections[3]) {
+        LOGF_WARN("Chest section size mismatch.\n");
+        return 0;
     }
 
     wld->chest_count = chest_count;
@@ -161,6 +168,11 @@ unsigned int get_signs(wld_t *wld) {
         sign->text = parse_string(buf, &pos);
         PARSE(buf, pos, int, sign->x);
         PARSE(buf, pos, int, sign->y);
+    }
+
+    if (pos != wld->info.sections[4]) {
+        LOGF_WARN("Sign section size mismatch.\n");
+        return 0;
     }
 
     wld->sign_count = sign_count;
@@ -284,6 +296,11 @@ unsigned int get_npcs(wld_t *wld) {
         PARSE(buf, pos, unsigned char, cont);
     }
 
+    if (pos != wld->info.sections[5]) {
+        LOGF_WARN("NPC section size mismatch.\n");
+        return 0;
+    }
+
     wld->npc_count = npc_count;
     wld->pet_count = pet_count;
 }
@@ -385,6 +402,11 @@ unsigned int get_tile_entities(wld_t *wld) {
         PARSE(buf, pos, short, tile_entity->y);
     }
 
+    if (pos != wld->info.sections[6]) {
+        LOGF_WARN("Tile entity section size mismatch.\n");
+        return 0;
+    }
+
     wld->tile_entity_count = tile_entity_count;
 
     return 1;
@@ -452,6 +474,11 @@ unsigned int get_pressure_plates(wld_t *wld) {
         PARSE(buf, pos, short, pressure_plate->y);
     }
 
+    if (pos != wld->info.sections[7]) {
+        LOGF_WARN("Pressure plate section size mismatch.\n");
+        return 0;
+    }
+
     wld->pressure_plate_count = pressure_plate_count;
 
     return 1;
@@ -516,6 +543,11 @@ unsigned int get_town_elements(wld_t *wld) {
         PARSE(buf, pos, int, town_element->id);
         PARSE(buf, pos, int, town_element->x);
         PARSE(buf, pos, int, town_element->y);
+    }
+
+    if (pos != wld->info.sections[8]) {
+        LOGF_WARN("Town element section size mismatch.\n");
+        return 0;
     }
 
     wld->town_element_count = town_element_count;
@@ -620,6 +652,11 @@ unsigned int get_bestiary(wld_t *wld) {
         chatter->item = parse_string(buf, &pos);
     }
 
+    if (pos != wld->info.sections[9]) {
+        LOGF_WARN("Bestiary section size mismatch.\n");
+        return 0;
+    }
+
     wld->chatter_count = chatter_count;
 
     return 1;
@@ -674,6 +711,96 @@ char *write_bestiary(wld_t *wld, unsigned long *size) {
     *size = pos;
 
     return buf;
+}
+
+/*
+ *    Creates a new Terraria world.
+ *
+ *    @param int width           The width of the world.
+ *    @param int height          The height of the world.
+ *    @param const char *name    The name of the world.
+ *    @param const char *seed    The seed of the world.
+ * 
+ *    @return wld_t *    The created world, or NULL on failure.
+ */
+wld_t *wld_new(int width, int height, const char *name, const char *seed) {
+    wld_t *wld = (wld_t *)malloc(sizeof(wld_t));
+
+    if (wld == (wld_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for world.\n");
+        return (wld_t *)0x0;
+    }
+
+    int seed_int;
+
+    if (atoi(seed) != 0) {
+        seed_int = atoi(seed);
+    } else {
+        seed_int = rand_crc32(seed, strlen(seed));
+    }
+
+    wld->file = (filestream_t *)0x0;
+
+    wld->chest_count = 0;
+    wld->chests = (chest_t *)0x0;
+    wld->sign_count = 0;
+    wld->signs = (sign_t *)0x0;
+    wld->npc_count = 0;
+    wld->npcs = (npc_t *)0x0;
+    wld->kill_count = 0;
+    wld->pet_count = 0;
+    wld->tile_entity_count = 0;
+    wld->tile_entities = (tile_entity_t *)0x0;
+    wld->tracker_count = 0;
+    wld->trackers = (tracker_t *)0x0;
+    wld->chatter_count = 0;
+    wld->chatters = (chatted_t *)0x0;
+    wld->pressure_plate_count = 0;
+    wld->pressure_plates = (pressure_plate_t *)0x0;
+    wld->town_element_count = 0;
+    wld->town_elements = (town_element_t *)0x0;
+
+    wld->info.ver = 279;
+    memcpy(wld->info.sig, "relogic", 7);
+
+    wld->header.name   = name;
+    wld->header.seed   = seed;
+    wld->header.width  = width;
+    wld->header.height = height;
+
+    wld->tiles = (tile_t **)malloc(sizeof(tile_t*) * width);
+
+    if (wld->tiles == (tile_t *)0x0) {
+        LOGF_ERR("Failed to allocate memory for tiles.\n");
+        free(wld);
+        return (wld_t *)0x0;
+    }
+
+    unsigned long i;
+    for (i = 0; i < width; ++i) {
+        wld->tiles[i] = (tile_t*)malloc(sizeof(tile_t) * height);
+
+        if (wld->tiles[i] == (tile_t*)0x0) {
+            LOGF_ERR("Failed to allocate memory for tiles.\n");
+            free(wld->tiles);
+            free(wld);
+            return (wld_t *)0x0;
+        }
+    }
+
+    unsigned long x;
+    unsigned long y;
+    for (x = 0; x < width; ++x) {
+        for (y = 0; y < height; ++y) {
+            wld->tiles[x][y].tile = -1;
+            wld->tiles[x][y].wall = -1;
+            wld->tiles[x][y].liquid_amount = 0;
+        }
+    }
+
+    wld_gen_world(wld, seed_int, name, width, height);
+
+    return wld;
 }
 
 /*
@@ -755,7 +882,7 @@ unsigned int wld_write(wld_t *wld, const char *path) {
     unsigned long pos = 0;
 
     char *sections[11];
-    unsigned long section_sizes[11];
+    unsigned int section_sizes[11];
     char  footer[0x1000];
 
     sprintf(footer, "\001%c%s", strlen(wld->header.name), wld->header.name);
@@ -776,14 +903,11 @@ unsigned int wld_write(wld_t *wld, const char *path) {
     sections[11] = footer;
     section_sizes[11] = 2 + strlen(wld->header.name) + 4;
 
-    unsigned long total_size = 0;
+    unsigned int total_size = 0;
 
     int i;
     for (i = 0; i <= 11; ++i) {
         total_size += section_sizes[i];
-
-        if (i < 11)
-            printf("Section diff: %d", (int)memcmp(wld->file->buf + wld->info.sections[i], sections[i+1], wld->info.sections[i+1] - wld->info.sections[i]));
         wld->info.sections[i] = total_size;
     }
 
